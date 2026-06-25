@@ -3,872 +3,1621 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>Local LLM Decision Hub — God Mode</title>
+<title>Local LLM & RAG Production Dashboard v2</title>
 <style>
 :root {
-  --bg: #0f1117; --surface: #1a1d27; --surface2: #22263a;
-  --border: #2e3352; --accent: #6366f1; --accent2: #22d3ee;
-  --green: #22c55e; --yellow: #eab308; --red: #ef4444; --orange: #f97316;
-  --text: #e2e8f0; --muted: #94a3b8; --code-bg: #0d1117;
+  --bg: #0f172a; --card: #1e293b; --card-hover: #334155;
+  --text: #f1f5f9; --text-muted: #94a3b8; --accent: #38bdf8;
+  --accent2: #818cf8; --success: #34d399; --warning: #fbbf24;
+  --danger: #f87171; --border: #334155;
+  --security: #ef4444; --monitor: #a78bfa;
 }
 * { box-sizing: border-box; margin: 0; padding: 0; }
-body { background: var(--bg); color: var(--text); font-family: 'Inter', system-ui, sans-serif; font-size: 14px; }
-a { color: var(--accent2); text-decoration: none; }
-
-/* Layout */
-.app { display: flex; height: 100vh; overflow: hidden; }
-.sidebar { width: 220px; background: var(--surface); border-right: 1px solid var(--border); padding: 16px 0; overflow-y: auto; flex-shrink: 0; }
-.main { flex: 1; overflow-y: auto; padding: 24px; }
-
-/* Sidebar */
-.logo { padding: 0 16px 20px; font-size: 13px; font-weight: 700; color: var(--accent); letter-spacing: .5px; border-bottom: 1px solid var(--border); margin-bottom: 12px; }
-.logo span { color: var(--accent2); }
-.nav-group { padding: 6px 16px 4px; font-size: 10px; font-weight: 700; text-transform: uppercase; color: var(--muted); letter-spacing: 1px; }
-.nav-item { display: flex; align-items: center; gap: 8px; padding: 8px 16px; cursor: pointer; transition: all .15s; color: var(--muted); font-size: 13px; border-left: 3px solid transparent; }
-.nav-item:hover { background: var(--surface2); color: var(--text); }
-.nav-item.active { background: var(--surface2); color: var(--accent); border-left-color: var(--accent); }
-.nav-item .badge { margin-left: auto; font-size: 10px; background: var(--red); color: #fff; padding: 1px 5px; border-radius: 9px; }
-.nav-item .badge.new { background: var(--green); }
-
-/* Tabs / Pages */
-.page { display: none; }
-.page.active { display: block; }
-
-/* Cards */
-.card { background: var(--surface); border: 1px solid var(--border); border-radius: 12px; padding: 20px; margin-bottom: 16px; }
-.card-title { font-size: 16px; font-weight: 700; margin-bottom: 4px; }
-.card-sub { color: var(--muted); font-size: 13px; margin-bottom: 16px; }
-
-/* Grid */
-.grid-2 { display: grid; grid-template-columns: 1fr 1fr; gap: 16px; }
-.grid-3 { display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 16px; }
-.grid-4 { display: grid; grid-template-columns: 1fr 1fr 1fr 1fr; gap: 16px; }
-
-/* Stats */
-.stat { background: var(--surface2); border-radius: 10px; padding: 16px; text-align: center; }
-.stat-val { font-size: 28px; font-weight: 800; }
-.stat-label { color: var(--muted); font-size: 12px; margin-top: 4px; }
-
-/* Table */
-.tbl { width: 100%; border-collapse: collapse; font-size: 13px; }
-.tbl th { background: var(--surface2); color: var(--muted); font-size: 11px; text-transform: uppercase; letter-spacing: .5px; padding: 10px 12px; text-align: left; border-bottom: 1px solid var(--border); }
-.tbl td { padding: 10px 12px; border-bottom: 1px solid var(--border); vertical-align: middle; }
-.tbl tr:last-child td { border-bottom: none; }
-.tbl tr:hover td { background: var(--surface2); }
-
-/* Badges */
-.badge-pill { display: inline-block; padding: 2px 8px; border-radius: 20px; font-size: 11px; font-weight: 600; }
-.green { background: rgba(34,197,94,.15); color: var(--green); }
-.yellow { background: rgba(234,179,8,.15); color: var(--yellow); }
-.red { background: rgba(239,68,68,.15); color: var(--red); }
-.blue { background: rgba(99,102,241,.15); color: var(--accent); }
-.cyan { background: rgba(34,211,238,.15); color: var(--accent2); }
-.orange { background: rgba(249,115,22,.15); color: var(--orange); }
-
-/* Inputs */
-input, select, textarea { background: var(--surface2); border: 1px solid var(--border); color: var(--text); border-radius: 8px; padding: 8px 12px; font-size: 13px; width: 100%; outline: none; font-family: inherit; }
-input:focus, select:focus, textarea:focus { border-color: var(--accent); }
-label { font-size: 12px; color: var(--muted); margin-bottom: 4px; display: block; }
-.form-group { margin-bottom: 14px; }
-.btn { background: var(--accent); color: #fff; border: none; border-radius: 8px; padding: 9px 18px; font-size: 13px; font-weight: 600; cursor: pointer; transition: opacity .15s; }
-.btn:hover { opacity: .85; }
-.btn-outline { background: transparent; border: 1px solid var(--border); color: var(--text); }
-.btn-green { background: var(--green); }
-.btn-red { background: var(--red); }
-
-/* Code */
-pre { background: var(--code-bg); border: 1px solid var(--border); border-radius: 8px; padding: 16px; font-size: 12px; overflow-x: auto; line-height: 1.6; }
-code { font-family: 'JetBrains Mono', 'Fira Code', monospace; color: var(--accent2); }
-pre code { color: var(--text); }
-
-/* Progress */
-.progress-bar { height: 6px; background: var(--surface2); border-radius: 3px; overflow: hidden; }
-.progress-fill { height: 100%; border-radius: 3px; transition: width .4s; }
-
-/* Alert */
-.alert { padding: 12px 16px; border-radius: 8px; margin-bottom: 12px; font-size: 13px; border-left: 3px solid; }
-.alert-red { background: rgba(239,68,68,.08); border-color: var(--red); }
-.alert-yellow { background: rgba(234,179,8,.08); border-color: var(--yellow); }
-.alert-green { background: rgba(34,197,94,.08); border-color: var(--green); }
-.alert-blue { background: rgba(99,102,241,.08); border-color: var(--accent); }
-
-/* Page header */
-.page-header { margin-bottom: 24px; }
-.page-header h1 { font-size: 22px; font-weight: 800; }
-.page-header p { color: var(--muted); margin-top: 4px; }
-
-/* Flow chart */
-.flow { display: flex; align-items: center; gap: 0; flex-wrap: wrap; margin: 16px 0; }
-.flow-box { background: var(--surface2); border: 1px solid var(--border); border-radius: 8px; padding: 8px 14px; font-size: 12px; text-align: center; }
-.flow-arrow { color: var(--muted); padding: 0 8px; font-size: 18px; }
-
-/* Rating stars */
-.stars { color: var(--yellow); font-size: 14px; }
-
-/* Checklist */
-.checklist { list-style: none; }
-.checklist li { padding: 7px 0; border-bottom: 1px solid var(--border); display: flex; align-items: center; gap: 10px; font-size: 13px; }
-.checklist li:last-child { border-bottom: none; }
-.check-icon { width: 18px; height: 18px; border-radius: 50%; display: flex; align-items: center; justify-content: center; font-size: 11px; flex-shrink: 0; }
-.check-icon.ok { background: rgba(34,197,94,.2); color: var(--green); }
-.check-icon.warn { background: rgba(234,179,8,.2); color: var(--yellow); }
-.check-icon.bad { background: rgba(239,68,68,.2); color: var(--red); }
-
-/* Tooltip */
-[data-tip] { position: relative; cursor: help; border-bottom: 1px dashed var(--muted); }
-
-/* Range slider */
-input[type=range] { padding: 0; background: transparent; border: none; cursor: pointer; }
-input[type=range]::-webkit-slider-runnable-track { height: 6px; background: var(--surface2); border-radius: 3px; }
-input[type=range]::-webkit-slider-thumb { -webkit-appearance: none; width: 16px; height: 16px; border-radius: 50%; background: var(--accent); margin-top: -5px; }
-
-/* Score ring */
-.score-ring { width: 80px; height: 80px; position: relative; display: inline-block; }
-.score-ring svg { transform: rotate(-90deg); }
-.score-ring .score-text { position: absolute; top: 50%; left: 50%; transform: translate(-50%,-50%); font-size: 18px; font-weight: 800; }
-
-/* Highlight */
-.highlight { background: rgba(99,102,241,.1); border-radius: 4px; padding: 1px 4px; color: var(--accent); font-weight: 600; }
-
-@media (max-width: 900px) {
-  .grid-3, .grid-4 { grid-template-columns: 1fr 1fr; }
-}
-@media (max-width: 600px) {
-  .grid-2, .grid-3, .grid-4 { grid-template-columns: 1fr; }
-  .sidebar { width: 60px; }
-  .nav-item span, .logo, .nav-group { display: none; }
-}
-</style>
-
-<!-- GOD MODE: Chart.js + Google Fonts -->
-<script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/4.4.0/chart.umd.min.js"></script>
-<link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800;900&display=swap" rel="stylesheet">
-
-<style>
-/* ============================================================
-   GOD MODE OVERRIDES — Premium visual layer
-   ============================================================ */
-
-:root {
-  --bg: #07090f;
-  --surface: rgba(255,255,255,0.035);
-  --surface2: rgba(255,255,255,0.06);
-  --border: rgba(255,255,255,0.07);
-  --accent: #818cf8;
-  --accent2: #22d3ee;
-  --green: #4ade80;
-  --yellow: #fbbf24;
-  --red: #f87171;
-  --orange: #fb923c;
-  --text: #f1f5f9;
-  --muted: #8892a4;
-  --glow: 0 0 20px rgba(129,140,248,0.25);
-  --glow-cyan: 0 0 20px rgba(34,211,238,0.2);
-  --glow-green: 0 0 16px rgba(74,222,128,0.2);
-}
-
-/* Animated mesh background */
 body {
-  font-family: 'Inter', system-ui, sans-serif;
-  background: var(--bg);
-  background-image:
-    radial-gradient(ellipse 90% 60% at 50% -10%, rgba(99,102,241,0.18) 0%, transparent 65%),
-    radial-gradient(ellipse 50% 40% at 90% 85%, rgba(34,211,238,0.1) 0%, transparent 55%),
-    radial-gradient(ellipse 40% 30% at 5% 70%, rgba(129,140,248,0.07) 0%, transparent 50%);
-  background-attachment: fixed;
+  font-family: 'Segoe UI', system-ui, sans-serif;
+  background: var(--bg); color: var(--text); line-height: 1.6; min-height: 100vh;
 }
-
-/* Scrollbar */
-::-webkit-scrollbar { width: 5px; }
-::-webkit-scrollbar-track { background: transparent; }
-::-webkit-scrollbar-thumb { background: rgba(129,140,248,0.3); border-radius: 3px; }
-::-webkit-scrollbar-thumb:hover { background: rgba(129,140,248,0.5); }
-
-/* Sidebar — dark glass */
-.sidebar {
-  background: rgba(7,9,15,0.95);
-  border-right: 1px solid rgba(255,255,255,0.06);
-  backdrop-filter: blur(24px);
+.container { max-width: 1400px; margin: 0 auto; padding: 20px; }
+header {
+  text-align: center; padding: 40px 20px;
+  background: linear-gradient(135deg, var(--bg) 0%, #1e1b4b 100%);
+  border-bottom: 1px solid var(--border); margin-bottom: 30px;
 }
-
-.logo {
-  background: linear-gradient(135deg, #818cf8 0%, #22d3ee 100%);
-  -webkit-background-clip: text;
-  -webkit-text-fill-color: transparent;
-  background-clip: text;
-  font-size: 14px;
-  font-weight: 900;
-  letter-spacing: -0.3px;
-  border-bottom: 1px solid rgba(255,255,255,0.06);
+header h1 { font-size: 2.5rem; background: linear-gradient(90deg, var(--accent), var(--accent2)); -webkit-background-clip: text; -webkit-text-fill-color: transparent; }
+header p { color: var(--text-muted); font-size: 1.1rem; margin-top: 10px; }
+.nav-tabs { display: flex; gap: 8px; margin-bottom: 30px; flex-wrap: wrap; justify-content: center; }
+.nav-tab {
+  padding: 10px 18px; background: var(--card); border: 1px solid var(--border);
+  border-radius: 8px; cursor: pointer; transition: all 0.3s; color: var(--text-muted);
+  font-weight: 500; font-size: 0.9rem;
 }
-
-.nav-item {
-  border-radius: 0 8px 8px 0;
-  margin-right: 8px;
-  transition: all 0.2s cubic-bezier(0.4,0,0.2,1);
-  font-size: 12.5px;
-  font-weight: 500;
-  border-left: 2px solid transparent;
-}
-.nav-item:hover {
-  background: rgba(129,140,248,0.08);
-  color: #f1f5f9;
-  border-left-color: rgba(129,140,248,0.4);
-}
-.nav-item.active {
-  background: linear-gradient(90deg, rgba(129,140,248,0.15) 0%, rgba(129,140,248,0.04) 100%);
-  color: var(--accent);
-  border-left: 2px solid var(--accent);
-  box-shadow: inset 0 0 20px rgba(129,140,248,0.05);
-}
-
-/* Cards — glassmorphism */
+.nav-tab:hover, .nav-tab.active { background: var(--accent); color: var(--bg); border-color: var(--accent); }
+.nav-tab.security-tab:hover, .nav-tab.security-tab.active { background: var(--security); border-color: var(--security); color: white; }
+.nav-tab.monitor-tab:hover, .nav-tab.monitor-tab.active { background: var(--monitor); border-color: var(--monitor); color: white; }
+.section { display: none; }
+.section.active { display: block; animation: fadeIn 0.4s ease; }
+@keyframes fadeIn { from { opacity: 0; transform: translateY(10px); } to { opacity: 1; transform: translateY(0); } }
 .card {
-  background: var(--surface);
-  border: 1px solid var(--border);
-  backdrop-filter: blur(12px);
-  border-radius: 16px;
-  transition: transform 0.2s cubic-bezier(0.4,0,0.2,1), box-shadow 0.2s, border-color 0.2s;
+  background: var(--card); border: 1px solid var(--border); border-radius: 12px;
+  padding: 24px; margin-bottom: 20px; transition: transform 0.2s, box-shadow 0.2s;
 }
-.card:hover {
-  transform: translateY(-2px);
-  box-shadow: 0 8px 32px rgba(0,0,0,0.3), 0 0 0 1px rgba(129,140,248,0.12);
-  border-color: rgba(129,140,248,0.15);
+.card:hover { transform: translateY(-2px); box-shadow: 0 10px 40px rgba(0,0,0,0.3); }
+.card h2 { color: var(--accent); margin-bottom: 16px; font-size: 1.4rem; display: flex; align-items: center; gap: 10px; }
+.card h3 { color: var(--accent2); margin: 16px 0 10px; font-size: 1.1rem; }
+.card.security-card { border-left: 4px solid var(--security); }
+.card.monitor-card { border-left: 4px solid var(--monitor); }
+.grid { display: grid; gap: 20px; }
+.grid-2 { grid-template-columns: repeat(auto-fit, minmax(400px, 1fr)); }
+.grid-3 { grid-template-columns: repeat(auto-fit, minmax(300px, 1fr)); }
+.grid-4 { grid-template-columns: repeat(auto-fit, minmax(250px, 1fr)); }
+.badge {
+  display: inline-block; padding: 4px 12px; border-radius: 20px;
+  font-size: 0.8rem; font-weight: 600;
 }
-.card-title {
-  font-weight: 800;
-  font-size: 15px;
-  background: linear-gradient(135deg, #f1f5f9 0%, #94a3b8 100%);
-  -webkit-background-clip: text;
-  -webkit-text-fill-color: transparent;
-  background-clip: text;
+.badge-green { background: rgba(52, 211, 153, 0.2); color: var(--success); }
+.badge-yellow { background: rgba(251, 191, 36, 0.2); color: var(--warning); }
+.badge-red { background: rgba(248, 113, 113, 0.2); color: var(--danger); }
+.badge-blue { background: rgba(56, 189, 248, 0.2); color: var(--accent); }
+.badge-purple { background: rgba(129, 140, 248, 0.2); color: var(--accent2); }
+.badge-security { background: rgba(239, 68, 68, 0.2); color: var(--security); }
+.badge-monitor { background: rgba(167, 139, 250, 0.2); color: var(--monitor); }
+table { width: 100%; border-collapse: collapse; margin-top: 10px; font-size: 0.9rem; }
+th, td { padding: 12px; text-align: left; border-bottom: 1px solid var(--border); }
+th { color: var(--accent); font-weight: 600; background: rgba(56, 189, 248, 0.05); }
+tr:hover { background: rgba(255,255,255,0.03); }
+.filter-bar { display: flex; gap: 12px; margin-bottom: 20px; flex-wrap: wrap; align-items: center; }
+.filter-bar select, .filter-bar input {
+  padding: 10px 14px; background: var(--bg); border: 1px solid var(--border);
+  border-radius: 8px; color: var(--text); font-size: 0.9rem;
 }
-
-/* Stat cards */
-.stat {
-  background: var(--surface);
-  border: 1px solid var(--border);
-  border-radius: 14px;
-  backdrop-filter: blur(12px);
-  transition: all 0.2s cubic-bezier(0.4,0,0.2,1);
-  position: relative;
-  overflow: hidden;
+.model-card {
+  background: var(--card); border: 1px solid var(--border);
+  border-radius: 12px; padding: 20px; position: relative; overflow: hidden;
 }
-.stat::before {
-  content: '';
-  position: absolute;
-  top: 0; left: 0; right: 0; height: 1px;
-  background: linear-gradient(90deg, transparent, rgba(129,140,248,0.4), transparent);
+.model-card::before {
+  content: ''; position: absolute; top: 0; left: 0; right: 0;
+  height: 4px; background: linear-gradient(90deg, var(--accent), var(--accent2));
 }
-.stat:hover {
-  transform: translateY(-3px);
-  box-shadow: var(--glow);
-  border-color: rgba(129,140,248,0.2);
+.model-card h3 { margin-bottom: 8px; color: var(--text); }
+.model-card .meta { color: var(--text-muted); font-size: 0.85rem; margin-bottom: 12px; }
+.model-card .specs { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; font-size: 0.85rem; }
+.model-card .specs span { color: var(--text-muted); }
+.model-card .specs strong { color: var(--text); }
+.calculator { background: linear-gradient(135deg, #1e1b4b 0%, var(--card) 100%); }
+.calc-row { display: flex; gap: 20px; margin-bottom: 16px; align-items: center; flex-wrap: wrap; }
+.calc-row label { min-width: 180px; font-weight: 500; }
+.calc-row select, .calc-row input {
+  flex: 1; min-width: 200px; padding: 10px 14px;
+  background: var(--bg); border: 1px solid var(--border); border-radius: 8px; color: var(--text);
 }
-.stat-val {
-  font-size: 32px;
-  font-weight: 900;
-  letter-spacing: -1px;
+.result-box {
+  background: var(--bg); border: 1px solid var(--border);
+  border-radius: 8px; padding: 20px; margin-top: 20px;
 }
-
-/* Table enhancements */
-.tbl th {
-  background: rgba(255,255,255,0.03);
-  font-size: 10.5px;
-  letter-spacing: 0.8px;
-  color: var(--muted);
-  border-bottom: 1px solid var(--border);
+.result-box h4 { color: var(--accent); margin-bottom: 10px; }
+.result-item { display: flex; justify-content: space-between; padding: 8px 0; border-bottom: 1px solid var(--border); }
+.result-item:last-child { border-bottom: none; }
+.flow-step {
+  background: var(--card); border-left: 4px solid var(--accent);
+  padding: 16px 20px; margin-bottom: 12px; border-radius: 0 8px 8px 0; position: relative;
 }
-.tbl tr:hover td {
-  background: rgba(129,140,248,0.05);
+.flow-step::before {
+  content: attr(data-step); position: absolute; left: -16px; top: 50%;
+  transform: translateY(-50%); background: var(--accent); color: var(--bg);
+  width: 28px; height: 28px; border-radius: 50%;
+  display: flex; align-items: center; justify-content: center;
+  font-weight: 700; font-size: 0.85rem;
 }
-.tbl td { border-bottom: 1px solid rgba(255,255,255,0.04); }
-
-/* Buttons */
-.btn {
-  background: linear-gradient(135deg, #6366f1 0%, #818cf8 100%);
-  border: none;
-  border-radius: 10px;
-  font-weight: 700;
-  letter-spacing: 0.2px;
-  box-shadow: 0 4px 14px rgba(99,102,241,0.35);
-  transition: all 0.2s;
-  position: relative;
-  overflow: hidden;
+.flow-step.answer { border-left-color: var(--success); background: rgba(52, 211, 153, 0.1); }
+.flow-step.answer::before { background: var(--success); }
+.rag-builder { display: grid; grid-template-columns: 1fr 1fr; gap: 20px; }
+@media (max-width: 900px) { .rag-builder { grid-template-columns: 1fr; } }
+.option-group { margin-bottom: 16px; }
+.option-group label { display: block; margin-bottom: 6px; font-weight: 500; color: var(--text-muted); font-size: 0.9rem; }
+.option-group select, .option-group input {
+  width: 100%; padding: 10px 14px; background: var(--bg); border: 1px solid var(--border);
+  border-radius: 8px; color: var(--text);
 }
-.btn::after {
-  content: '';
-  position: absolute;
-  top: 0; left: -100%; width: 100%; height: 100%;
-  background: linear-gradient(90deg, transparent, rgba(255,255,255,0.15), transparent);
-  transition: left 0.4s;
+.recommendation {
+  background: linear-gradient(135deg, rgba(56, 189, 248, 0.1), rgba(129, 140, 248, 0.1));
+  border: 1px solid var(--accent); border-radius: 12px; padding: 24px; margin-top: 20px;
 }
-.btn:hover::after { left: 100%; }
-.btn:hover {
-  transform: translateY(-1px);
-  box-shadow: 0 6px 20px rgba(99,102,241,0.5);
+.recommendation h3 { color: var(--accent); margin-bottom: 12px; }
+.recommendation ul { list-style: none; }
+.recommendation li { padding: 8px 0; padding-left: 24px; position: relative; }
+.recommendation li::before { content: '→'; position: absolute; left: 0; color: var(--accent); }
+.priority-list { counter-reset: priority; }
+.priority-item {
+  background: var(--card); border: 1px solid var(--border);
+  border-radius: 12px; padding: 20px; margin-bottom: 16px;
+  position: relative; padding-left: 60px;
 }
-
-/* Inputs */
-input, select, textarea {
-  background: rgba(255,255,255,0.05);
-  border: 1px solid rgba(255,255,255,0.08);
-  border-radius: 10px;
-  color: var(--text);
-  transition: all 0.2s;
+.priority-item::before {
+  counter-increment: priority; content: counter(priority);
+  position: absolute; left: 16px; top: 50%; transform: translateY(-50%);
+  width: 36px; height: 36px;
+  background: linear-gradient(135deg, var(--accent), var(--accent2));
+  border-radius: 50%; display: flex; align-items: center; justify-content: center;
+  font-weight: 700; color: var(--bg);
 }
-input:focus, select:focus, textarea:focus {
-  border-color: rgba(129,140,248,0.5);
-  box-shadow: 0 0 0 3px rgba(129,140,248,0.1);
-  background: rgba(255,255,255,0.07);
-  outline: none;
+.priority-item h3 { color: var(--accent); margin-bottom: 8px; }
+.priority-item .impact { display: inline-block; padding: 4px 12px; border-radius: 20px; font-size: 0.8rem; margin-bottom: 10px; }
+.progress-bar { height: 8px; background: var(--bg); border-radius: 4px; overflow: hidden; margin-top: 8px; }
+.progress-fill { height: 100%; background: linear-gradient(90deg, var(--accent), var(--accent2)); border-radius: 4px; transition: width 0.5s ease; }
+.code-block {
+  background: var(--bg); border: 1px solid var(--border);
+  border-radius: 8px; padding: 16px;
+  font-family: 'Consolas', 'Monaco', monospace;
+  font-size: 0.85rem; overflow-x: auto; margin: 10px 0; color: #a5f3fc;
 }
-select option { background: #0f1117; color: var(--text); }
-
-/* Progress bars */
-.progress-bar {
-  background: rgba(255,255,255,0.06);
-  border-radius: 99px;
-  overflow: hidden;
-  height: 7px;
+.code-block .comment { color: var(--text-muted); }
+.code-block .cmd { color: var(--success); }
+.code-block .danger { color: var(--danger); }
+.code-block .warning { color: var(--warning); }
+.checklist-item {
+  display: flex; align-items: flex-start; gap: 12px;
+  padding: 12px; background: var(--bg); border-radius: 8px;
+  margin-bottom: 8px; border: 1px solid var(--border);
 }
-.progress-fill {
-  border-radius: 99px;
-  position: relative;
-  overflow: hidden;
+.checklist-item input[type="checkbox"] {
+  width: 20px; height: 20px; margin-top: 2px;
+  accent-color: var(--accent); cursor: pointer;
 }
-.progress-fill::after {
-  content: '';
-  position: absolute;
-  top: 0; left: -100%; width: 60%; height: 100%;
-  background: linear-gradient(90deg, transparent, rgba(255,255,255,0.3), transparent);
-  animation: shimmer 2s infinite;
+.checklist-item label { cursor: pointer; flex: 1; }
+.checklist-item.checked { border-color: var(--success); background: rgba(52, 211, 153, 0.05); }
+.checklist-item.checked label { text-decoration: line-through; color: var(--text-muted); }
+.alert-box {
+  padding: 16px 20px; border-radius: 8px; margin: 16px 0; border-left: 4px solid;
 }
-@keyframes shimmer { to { left: 200%; } }
-
-/* Badge pills */
-.badge-pill {
-  font-weight: 700;
-  letter-spacing: 0.2px;
-  border-radius: 99px;
-  padding: 3px 10px;
-  font-size: 11px;
+.alert-danger { background: rgba(239, 68, 68, 0.1); border-color: var(--danger); }
+.alert-warning { background: rgba(251, 191, 36, 0.1); border-color: var(--warning); }
+.alert-info { background: rgba(56, 189, 248, 0.1); border-color: var(--accent); }
+.alert-success { background: rgba(52, 211, 153, 0.1); border-color: var(--success); }
+.metric-card {
+  background: var(--bg); border: 1px solid var(--border);
+  border-radius: 8px; padding: 16px; text-align: center;
 }
-.green  { background: rgba(74,222,128,0.12); color: var(--green); border: 1px solid rgba(74,222,128,0.2); }
-.yellow { background: rgba(251,191,36,0.1); color: var(--yellow); border: 1px solid rgba(251,191,36,0.2); }
-.red    { background: rgba(248,113,113,0.1); color: var(--red); border: 1px solid rgba(248,113,113,0.2); }
-.blue   { background: rgba(129,140,248,0.12); color: var(--accent); border: 1px solid rgba(129,140,248,0.2); }
-.cyan   { background: rgba(34,211,238,0.1); color: var(--accent2); border: 1px solid rgba(34,211,238,0.2); }
-.orange { background: rgba(251,146,60,0.1); color: var(--orange); border: 1px solid rgba(251,146,60,0.2); }
-
-/* Code blocks */
-pre {
-  background: rgba(0,0,0,0.5);
-  border: 1px solid rgba(129,140,248,0.1);
-  border-radius: 12px;
-  position: relative;
+.metric-card .value { font-size: 2rem; font-weight: 700; color: var(--accent); }
+.metric-card .label { color: var(--text-muted); font-size: 0.85rem; margin-top: 4px; }
+.sub-tabs { display: flex; gap: 8px; margin-bottom: 16px; flex-wrap: wrap; }
+.sub-tab { padding: 8px 16px; background: var(--bg); border: 1px solid var(--border); border-radius: 6px; cursor: pointer; font-size: 0.85rem; color: var(--text-muted); }
+.sub-tab:hover, .sub-tab.active { background: var(--accent); color: var(--bg); border-color: var(--accent); }
+.tab-content { display: none; }
+.tab-content.active { display: block; }
+@media (max-width: 768px) {
+  header h1 { font-size: 1.8rem; }
+  .grid-2, .grid-3, .grid-4 { grid-template-columns: 1fr; }
+  .calc-row { flex-direction: column; align-items: flex-start; }
+  .calc-row label { min-width: auto; }
 }
-pre::before {
-  content: '';
-  position: absolute;
-  top: 0; left: 0; right: 0; height: 1px;
-  background: linear-gradient(90deg, rgba(129,140,248,0.4), rgba(34,211,238,0.4), transparent);
-}
-code { color: var(--accent2); }
-pre code { color: #c9d1d9; }
-
-/* Alert boxes */
-.alert {
-  border-radius: 12px;
-  backdrop-filter: blur(8px);
-}
-.alert-red    { background: rgba(248,113,113,0.07); border-left: 3px solid var(--red); }
-.alert-yellow { background: rgba(251,191,36,0.07); border-left: 3px solid var(--yellow); }
-.alert-green  { background: rgba(74,222,128,0.07); border-left: 3px solid var(--green); }
-.alert-blue   { background: rgba(129,140,248,0.07); border-left: 3px solid var(--accent); }
-
-/* Page header */
-.page-header h1 {
-  font-size: 26px;
-  font-weight: 900;
-  letter-spacing: -0.5px;
-  background: linear-gradient(135deg, #f1f5f9 20%, #94a3b8 100%);
-  -webkit-background-clip: text;
-  -webkit-text-fill-color: transparent;
-  background-clip: text;
-}
-.page-header p { color: var(--muted); font-size: 14px; }
-
-/* Page transitions */
-.page {
-  animation: pageIn 0.3s cubic-bezier(0.4,0,0.2,1) both;
-}
-@keyframes pageIn {
-  from { opacity: 0; transform: translateY(10px); }
-  to   { opacity: 1; transform: translateY(0); }
-}
-
-/* Main area */
-.main { padding: 28px 32px; }
-
-/* Nav group labels */
-.nav-group {
-  font-size: 9.5px;
-  font-weight: 700;
-  letter-spacing: 1.2px;
-  color: rgba(148,163,184,0.5);
-  padding: 10px 16px 3px;
-}
-
-/* Checklist */
-.check-icon.ok   { background: rgba(74,222,128,0.15); color: var(--green); }
-.check-icon.warn { background: rgba(251,191,36,0.15); color: var(--yellow); }
-.check-icon.bad  { background: rgba(248,113,113,0.15); color: var(--red); }
-
-/* Chart containers */
-.chart-wrap {
-  position: relative;
-  padding: 8px;
-  background: rgba(0,0,0,0.2);
-  border-radius: 12px;
-  border: 1px solid rgba(255,255,255,0.05);
-}
-
-/* Live metric indicator */
-.live-metric::after {
-  content: '●';
-  position: absolute;
-  top: 8px; right: 8px;
-  font-size: 8px;
-  color: var(--green);
-  animation: blink 1.5s infinite;
-}
-@keyframes blink { 0%,100%{opacity:1} 50%{opacity:0.3} }
 </style>
 </head>
 <body>
-<div class="app">
+<header>
+  <h1>Local LLM & RAG Production Dashboard v2</h1>
+  <p>Complete guide: Model selection -> Security -> Monitoring -> Deployment -> Compliance -> Cost</p>
+</header>
 
-<!-- SIDEBAR -->
-<nav class="sidebar">
-  <div class="logo" style="font-size:15px;letter-spacing:-0.3px">⚡ Local LLM<br><span style="font-size:11px;font-weight:600;letter-spacing:0.5px">DECISION HUB · GOD MODE</span></div>
-
-  <div class="nav-group">Foundation</div>
-  <div class="nav-item active" onclick="show('overview')">📊 <span>Overview</span></div>
-  <div class="nav-item" onclick="show('models')">🤖 <span>Model Picker</span></div>
-  <div class="nav-item" onclick="show('hardware')">💻 <span>Hardware Calc</span></div>
-  <div class="nav-item" onclick="show('rag')">🔍 <span>RAG Builder</span></div>
-
-  <div class="nav-group">Critical Gaps</div>
-  <div class="nav-item" onclick="show('eval')">🧪 <span>Evaluation</span> <span class="badge new">NEW</span></div>
-  <div class="nav-item" onclick="show('prompts')">📝 <span>Prompt Mgmt</span> <span class="badge new">NEW</span></div>
-  <div class="nav-item" onclick="show('hallucination')">🚨 <span>Hallucination</span> <span class="badge new">NEW</span></div>
-  <div class="nav-item" onclick="show('fallback')">🔀 <span>Fallback Chain</span> <span class="badge new">NEW</span></div>
-  <div class="nav-item" onclick="show('context')">📏 <span>Context Mgmt</span> <span class="badge new">NEW</span></div>
-  <div class="nav-item" onclick="show('license')">⚖️ <span>License Risk</span> <span class="badge new">NEW</span></div>
-
-  <div class="nav-group">Market Intel</div>
-  <div class="nav-item" onclick="show('layman')">🙋 <span>Plain English</span> <span class="badge new">NEW</span></div>
-  <div class="nav-item" onclick="show('industry')">📈 <span>Industry Data</span> <span class="badge new">2026</span></div>
-  <div class="nav-item" onclick="show('sme-sources')">🔬 <span>SME Sources</span> <span class="badge new">NEW</span></div>
-
-  <div class="nav-group">Production</div>
-  <div class="nav-item" onclick="show('security')">🔒 <span>Security</span></div>
-  <div class="nav-item" onclick="show('monitoring')">📡 <span>Monitoring</span></div>
-  <div class="nav-item" onclick="show('cost')">💰 <span>Cost Analysis</span></div>
-  <div class="nav-item" onclick="show('quickstart')">🚀 <span>Quick Start</span></div>
-</nav>
-
-<!-- MAIN -->
-<div class="main">
-
-<!-- ===== OVERVIEW ===== -->
-<div id="page-overview" class="page active">
-  <div class="page-header">
-    <h1>📊 Local LLM Decision Hub</h1>
-    <p>Everything you need to choose, deploy, and operate a local LLM stack — including the critical gaps most guides miss.</p>
+<div class="container">
+  <div class="nav-tabs">
+    <div class="nav-tab active" onclick="showSection('overview')">Overview</div>
+    <div class="nav-tab" onclick="showSection('models')">Model Picker</div>
+    <div class="nav-tab" onclick="showSection('hardware')">Hardware</div>
+    <div class="nav-tab" onclick="showSection('rag')">RAG Builder</div>
+    <div class="nav-tab security-tab" onclick="showSection('security')">Security</div>
+    <div class="nav-tab monitor-tab" onclick="showSection('monitoring')">Monitoring</div>
+    <div class="nav-tab" onclick="showSection('deployment')">Deployment</div>
+    <div class="nav-tab" onclick="showSection('compliance')">Compliance</div>
+    <div class="nav-tab" onclick="showSection('cost')">Cost Analysis</div>
+    <div class="nav-tab" onclick="showSection('decision')">Decision Flow</div>
+    <div class="nav-tab" onclick="showSection('optimize')">Optimization</div>
+    <div class="nav-tab" onclick="showSection('quickstart')">Quick Start</div>
   </div>
 
-  <div class="alert alert-red">
-    <strong>⚠️ What most guides skip:</strong> Evaluation framework, prompt version control, hallucination detection, fallback chains, context window management, and license risk.
-  </div>
+  <!-- OVERVIEW SECTION -->
+  <div id="overview" class="section active">
+    <div class="alert-box alert-danger">
+      <strong>CRITICAL GAPS IN MOST LOCAL LLM SETUPS:</strong>
+      <ol style="margin-top:8px;padding-left:20px">
+        <li><strong>Security:</strong> No model integrity verification, exposed APIs without auth, no prompt injection defenses</li>
+        <li><strong>Monitoring:</strong> Flying blind -- no TTFT/TPS tracking, no alerting on GPU OOM, no cost visibility</li>
+        <li><strong>Compliance:</strong> No audit logs, no EU AI Act mapping, no PII redaction in logs</li>
+        <li><strong>Operations:</strong> No rollback plan, no health checks, no disaster recovery</li>
+      </ol>
+    </div>
 
-  <div class="grid-4" style="margin-bottom:20px">
-    <div class="stat live-metric"><div class="stat-val count-up" data-target="17" style="color:var(--accent)">17</div><div class="stat-label">Dashboard Sections</div></div>
-    <div class="stat"><div class="stat-val count-up" data-target="12" style="color:var(--green)">12</div><div class="stat-label">Models Covered</div></div>
-    <div class="stat"><div class="stat-val count-up" data-target="6" style="color:var(--yellow)">6</div><div class="stat-label">Critical Gaps Filled</div></div>
-    <div class="stat"><div class="stat-val" style="color:var(--accent2)">2026</div><div class="stat-label">Data Currency</div></div>
-  </div>
+    <div class="grid grid-2">
+      <div class="card">
+        <h2>Top Models by Use Case</h2>
+        <table>
+          <tr><th>Use Case</th><th>Best Model</th><th>Size</th><th>License</th></tr>
+          <tr><td>General Purpose</td><td><strong>Qwen 3</strong></td><td>0.6B-72B</td><td><span class="badge badge-green">Apache 2.0</span></td></tr>
+          <tr><td>Low Resource</td><td><strong>Phi-4-mini</strong></td><td>3.8B</td><td><span class="badge badge-green">MIT</span></td></tr>
+          <tr><td>Speed</td><td><strong>Mistral Small 3</strong></td><td>7B</td><td><span class="badge badge-green">Apache 2.0</span></td></tr>
+          <tr><td>Reasoning</td><td><strong>GPT-OSS</strong></td><td>20B / 120B</td><td><span class="badge badge-green">Apache 2.0</span></td></tr>
+          <tr><td>Coding</td><td><strong>Devstral / Qwen 3 Coder</strong></td><td>7B-480B</td><td><span class="badge badge-green">Apache 2.0</span></td></tr>
+          <tr><td>Multimodal</td><td><strong>Gemma 3</strong></td><td>1B-27B</td><td><span class="badge badge-green">Apache 2.0</span></td></tr>
+          <tr><td>Ecosystem</td><td><strong>Llama 3.3 / 4</strong></td><td>8B-405B</td><td><span class="badge badge-yellow">Meta License</span></td></tr>
+        </table>
+      </div>
 
-  <div class="grid-2">
+      <div class="card">
+        <h2>Local vs Cloud Comparison</h2>
+        <div style="display:flex;gap:20px">
+          <div style="flex:1;background:var(--bg);border-radius:12px;padding:20px;border:1px solid var(--border)">
+            <h4 style="text-align:center;color:var(--success);margin-bottom:16px">Local LLM</h4>
+            <ul style="list-style:none;color:var(--text-muted);font-size:0.9rem">
+              <li style="padding:6px 0">Zero data leakage</li>
+              <li style="padding:6px 0">Fully offline capable</li>
+              <li style="padding:6px 0">No usage fees</li>
+              <li style="padding:6px 0">Full customization</li>
+              <li style="padding:6px 0">No content filters</li>
+              <li style="padding:6px 0">Deterministic output</li>
+              <li style="padding:6px 0">No rate limits</li>
+              <li style="padding:6px 0">No vendor lock-in</li>
+            </ul>
+          </div>
+          <div style="flex:1;background:var(--bg);border-radius:12px;padding:20px;border:1px solid var(--border)">
+            <h4 style="text-align:center;color:var(--accent);margin-bottom:16px">Cloud API</h4>
+            <ul style="list-style:none;color:var(--text-muted);font-size:0.9rem">
+              <li style="padding:6px 0">Best reasoning quality</li>
+              <li style="padding:6px 0">Zero setup</li>
+              <li style="padding:6px 0">Built-in tools & vision</li>
+              <li style="padding:6px 0">Automatic scaling</li>
+              <li style="padding:6px 0">Always up-to-date</li>
+              <li style="padding:6px 0">Managed infrastructure</li>
+              <li style="padding:6px 0">Pay-as-you-go</li>
+              <li style="padding:6px 0">Frontier models only</li>
+            </ul>
+          </div>
+        </div>
+      </div>
+    </div>
+
     <div class="card">
-      <div class="card-title">🎯 Quick Decision Matrix</div>
-      <div class="card-sub">Match your situation to the right starting point</div>
-      <table class="tbl">
-        <tr><th>Your Situation</th><th>Start Here</th></tr>
-        <tr><td>Just exploring, 16GB RAM</td><td><span class="badge-pill blue">Model Picker</span></td></tr>
-        <tr><td>Have proprietary docs</td><td><span class="badge-pill cyan">RAG Builder</span></td></tr>
-        <tr><td>Need production reliability</td><td><span class="badge-pill orange">Fallback Chain</span></td></tr>
-        <tr><td>Outputs are wrong too often</td><td><span class="badge-pill red">Hallucination</span></td></tr>
-        <tr><td>Model changed, broke things</td><td><span class="badge-pill green">Eval Framework</span></td></tr>
-        <tr><td>Prompts inconsistent</td><td><span class="badge-pill blue">Prompt Mgmt</span></td></tr>
-        <tr><td>Commercial deployment</td><td><span class="badge-pill yellow">License Risk</span></td></tr>
-      </table>
+      <h2>Hardware Tier Guide</h2>
+      <div class="grid grid-4">
+        <div class="model-card">
+          <h3>Entry Level</h3>
+          <div class="meta">8GB RAM / Integrated GPU</div>
+          <div class="specs">
+            <div><span>Models:</span> <strong>Phi-4-mini, Gemma 3 1B</strong></div>
+            <div><span>RAM:</span> <strong>~3.5GB</strong></div>
+            <div><span>Speed:</span> <strong>15-20 t/s</strong></div>
+            <div><span>Quality:</span> <strong>GPT-3.5 level</strong></div>
+          </div>
+        </div>
+        <div class="model-card">
+          <h3>Mid Range</h3>
+          <div class="meta">16GB RAM / 8-12GB VRAM</div>
+          <div class="specs">
+            <div><span>Models:</span> <strong>Llama 3.3 8B, Qwen 3 8B</strong></div>
+            <div><span>RAM:</span> <strong>~5.5-6GB</strong></div>
+            <div><span>Speed:</span> <strong>30-50 t/s</strong></div>
+            <div><span>Quality:</span> <strong>GPT-3.5+ level</strong></div>
+          </div>
+        </div>
+        <div class="model-card">
+          <h3>Enthusiast</h3>
+          <div class="meta">32GB+ RAM / 24GB+ VRAM</div>
+          <div class="specs">
+            <div><span>Models:</span> <strong>Llama 70B, Qwen 3 72B</strong></div>
+            <div><span>RAM:</span> <strong>~26-42GB</strong></div>
+            <div><span>Speed:</span> <strong>10-25 t/s</strong></div>
+            <div><span>Quality:</span> <strong>GPT-4o-mini level</strong></div>
+          </div>
+        </div>
+        <div class="model-card">
+          <h3>Enterprise</h3>
+          <div class="meta">Multi-GPU / Server</div>
+          <div class="specs">
+            <div><span>Models:</span> <strong>GPT-OSS 120B, Qwen 3 Coder</strong></div>
+            <div><span>RAM:</span> <strong>80GB+</strong></div>
+            <div><span>Speed:</span> <strong>Varies</strong></div>
+            <div><span>Quality:</span> <strong>GPT-4o level</strong></div>
+          </div>
+        </div>
+      </div>
     </div>
+  </div>
+
+  <!-- MODEL PICKER SECTION -->
+  <div id="models" class="section">
     <div class="card">
-      <div class="card-title">🏆 Top Models 2026</div>
-      <div class="card-sub">Best per category — updated Jun 2026</div>
-      <table class="tbl">
-        <tr><th>Category</th><th>Model</th><th>Size</th></tr>
-        <tr><td>Best Overall</td><td><strong>Qwen 3 72B</strong></td><td>72B</td></tr>
-        <tr><td>Low VRAM</td><td><strong>Phi-4-mini</strong></td><td>3.8B</td></tr>
-        <tr><td>Speed</td><td><strong>Mistral Small 3</strong></td><td>7B</td></tr>
-        <tr><td>Coding</td><td><strong>Devstral</strong></td><td>22B</td></tr>
-        <tr><td>Reasoning</td><td><strong>GPT-OSS 20B</strong></td><td>20B</td></tr>
-        <tr><td>Multimodal</td><td><strong>Gemma 3 27B</strong></td><td>27B</td></tr>
-        <tr><td>MoE Efficiency</td><td><strong>Mixtral 8x7B</strong></td><td>13B active</td></tr>
-      </table>
-    </div>
-  </div>
-
-  <div class="card">
-    <div class="card-title">🛣️ Production Readiness Path</div>
-    <div class="card-sub">Complete this sequence before going live</div>
-    <div style="display:flex;gap:8px;flex-wrap:wrap;margin-top:8px">
-      <div style="background:var(--surface2);border-radius:8px;padding:12px 16px;text-align:center;min-width:110px">
-        <div style="font-size:20px">1️⃣</div>
-        <div style="font-weight:700;font-size:13px;margin-top:4px">Pick Model</div>
-        <div style="color:var(--muted);font-size:11px">Match hardware + task</div>
-      </div>
-      <div style="align-self:center;color:var(--muted);font-size:20px">→</div>
-      <div style="background:var(--surface2);border-radius:8px;padding:12px 16px;text-align:center;min-width:110px">
-        <div style="font-size:20px">2️⃣</div>
-        <div style="font-weight:700;font-size:13px;margin-top:4px">Build RAG</div>
-        <div style="color:var(--muted);font-size:11px">Add your data</div>
-      </div>
-      <div style="align-self:center;color:var(--muted);font-size:20px">→</div>
-      <div style="background:rgba(99,102,241,.15);border:1px solid var(--accent);border-radius:8px;padding:12px 16px;text-align:center;min-width:110px">
-        <div style="font-size:20px">3️⃣</div>
-        <div style="font-weight:700;font-size:13px;margin-top:4px">Eval Suite</div>
-        <div style="color:var(--muted);font-size:11px">Build test set first</div>
-      </div>
-      <div style="align-self:center;color:var(--muted);font-size:20px">→</div>
-      <div style="background:rgba(99,102,241,.15);border:1px solid var(--accent);border-radius:8px;padding:12px 16px;text-align:center;min-width:110px">
-        <div style="font-size:20px">4️⃣</div>
-        <div style="font-weight:700;font-size:13px;margin-top:4px">Prompt Ctrl</div>
-        <div style="color:var(--muted);font-size:11px">Version prompts</div>
-      </div>
-      <div style="align-self:center;color:var(--muted);font-size:20px">→</div>
-      <div style="background:rgba(99,102,241,.15);border:1px solid var(--accent);border-radius:8px;padding:12px 16px;text-align:center;min-width:110px">
-        <div style="font-size:20px">5️⃣</div>
-        <div style="font-weight:700;font-size:13px;margin-top:4px">Fallback Chain</div>
-        <div style="color:var(--muted);font-size:11px">Handle failures</div>
-      </div>
-      <div style="align-self:center;color:var(--muted);font-size:20px">→</div>
-      <div style="background:var(--surface2);border-radius:8px;padding:12px 16px;text-align:center;min-width:110px">
-        <div style="font-size:20px">6️⃣</div>
-        <div style="font-weight:700;font-size:13px;margin-top:4px">Monitor</div>
-        <div style="color:var(--muted);font-size:11px">Observe in prod</div>
-      </div>
-    </div>
-    <div style="margin-top:12px;color:var(--muted);font-size:12px">Steps 3–5 (highlighted) are what most teams skip and regret.</div>
-  </div>
-</div>
-
-<!-- ===== MODEL PICKER ===== -->
-<div id="page-models" class="page">
-  <div class="page-header"><h1>🤖 Model Picker</h1><p>Filter and compare local LLMs by use case, size, and license</p></div>
-  <div class="card">
-    <div class="grid-3" style="margin-bottom:16px">
-      <div class="form-group">
-        <label>Use Case</label>
-        <select id="filter-usecase">
-          <option value="">All</option>
-          <option>General</option>
-          <option>Coding</option>
-          <option>Reasoning</option>
-          <option>Multimodal</option>
+      <h2>Interactive Model Finder</h2>
+      <div class="filter-bar">
+        <select id="useCaseFilter" onchange="filterModels()">
+          <option value="all">All Use Cases</option>
+          <option value="general">General Purpose</option>
+          <option value="coding">Coding</option>
+          <option value="reasoning">Reasoning</option>
+          <option value="speed">Speed / Low Latency</option>
+          <option value="multimodal">Multimodal</option>
+          <option value="lowresource">Low Resource</option>
         </select>
-      </div>
-      <div class="form-group">
-        <label>Max Size</label>
-        <select id="filter-size">
-          <option value="">Any</option>
-          <option value="4">≤ 4B</option>
-          <option value="8">≤ 8B</option>
-          <option value="72">≤ 72B</option>
+        <select id="sizeFilter" onchange="filterModels()">
+          <option value="all">All Sizes</option>
+          <option value="small">Small (&lt;10B)</option>
+          <option value="medium">Medium (10B-40B)</option>
+          <option value="large">Large (40B+)</option>
         </select>
-      </div>
-      <div class="form-group">
-        <label>License</label>
-        <select id="filter-license">
-          <option value="">Any</option>
-          <option>Apache 2.0</option>
-          <option>MIT</option>
+        <select id="licenseFilter" onchange="filterModels()">
+          <option value="all">All Licenses</option>
+          <option value="apache">Apache 2.0</option>
+          <option value="mit">MIT</option>
+          <option value="meta">Meta License</option>
         </select>
+        <input type="text" id="searchModel" placeholder="Search models..." onkeyup="filterModels()">
       </div>
-    </div>
-    <table class="tbl">
-      <thead><tr><th>Model</th><th>Params</th><th>VRAM (Q4)</th><th>Speed</th><th>Best For</th><th>License</th></tr></thead>
-      <tbody>
-        <tr><td>Qwen 3 72B</td><td>72B</td><td>42GB</td><td>High</td><td>General</td><td>Apache 2.0</td></tr>
-        <tr><td>Phi-4-mini</td><td>3.8B</td><td>2GB</td><td>Very Fast</td><td>Low Resource</td><td>MIT</td></tr>
-        <tr><td>Mistral Small 3</td><td>7B</td><td>4GB</td><td>Fast</td><td>General</td><td>Apache 2.0</td></tr>
-        <tr><td>Llama 3.3 8B</td><td>8B</td><td>5GB</td><td>Fast</td><td>General</td><td>Meta Community</td></tr>
-      </tbody>
-    </table>
-  </div>
-</div>
-
-<!-- ===== HARDWARE CALC ===== -->
-<div id="page-hardware" class="page">
-  <div class="page-header"><h1>💻 Hardware Calculator</h1><p>Find out if your machine can run a model</p></div>
-  <div class="grid-2">
-    <div class="card">
-      <div class="card-title">Configure Your Setup</div>
-      <div class="form-group"><label>Model</label>
-        <select id="hw-model">
-          <option>Phi-4-mini (3.8B)</option>
-          <option>Mistral Small 3 (7B)</option>
-          <option>Llama 3.3 8B</option>
-          <option>Qwen 3 72B</option>
-        </select>
-      </div>
-      <div class="form-group"><label>Your GPU VRAM (GB)</label>
-        <input type="number" value="24" min="4" max="200">
-      </div>
-      <div class="form-group"><label>System RAM (GB)</label>
-        <input type="number" value="32" min="8" max="512">
-      </div>
+      <div id="modelGrid" class="grid grid-3"></div>
     </div>
     <div class="card">
-      <div class="card-title">Result</div>
-      <div style="margin-top:12px;color:var(--muted)">✅ Your setup can run this model comfortably</div>
-    </div>
-  </div>
-</div>
-
-<!-- ===== RAG BUILDER ===== -->
-<div id="page-rag" class="page">
-  <div class="page-header"><h1>🔍 RAG Builder</h1><p>Configure your retrieval stack</p></div>
-  <div class="grid-2">
-    <div class="card">
-      <div class="card-title">Stack Configurator</div>
-      <div class="form-group"><label>Document Type</label>
-        <select>
-          <option>PDF / Word / Text</option>
-          <option>Code Repository</option>
-          <option>Web Pages</option>
-        </select>
+      <h2>Detailed Model Comparison</h2>
+      <div style="overflow-x:auto">
+        <table id="modelTable">
+          <thead><tr><th>Model</th><th>Params</th><th>Context</th><th>License</th><th>Best For</th><th>VRAM (Q4)</th><th>Quality</th></tr></thead>
+          <tbody id="modelTableBody"></tbody>
+        </table>
       </div>
-      <button class="btn">Generate Stack</button>
     </div>
+  </div>
+
+  <!-- HARDWARE CALCULATOR SECTION -->
+  <div id="hardware" class="section">
+    <div class="grid grid-2">
+      <div class="card calculator">
+        <h2>Hardware Requirements Calculator</h2>
+        <div class="calc-row">
+          <label>Model Size:</label>
+          <select id="calcModelSize" onchange="calculateHardware()">
+            <option value="3">3B (Phi-4-mini)</option>
+            <option value="7">7B (Mistral Small 3)</option>
+            <option value="8" selected>8B (Llama 3.3 / Qwen 3)</option>
+            <option value="14">14B (Qwen 3)</option>
+            <option value="27">27B (Gemma 3)</option>
+            <option value="32">32B (Qwen 3)</option>
+            <option value="70">70B (Llama 3.3 / Qwen 3)</option>
+            <option value="72">72B (Qwen 3)</option>
+            <option value="120">120B (GPT-OSS)</option>
+          </select>
+        </div>
+        <div class="calc-row">
+          <label>Quantization:</label>
+          <select id="calcQuant" onchange="calculateHardware()">
+            <option value="2">Q2_K (smallest)</option>
+            <option value="3">Q3_K_M</option>
+            <option value="4" selected>Q4_K_M (balanced)</option>
+            <option value="5">Q5_K_M</option>
+            <option value="6">Q6_K</option>
+            <option value="8">Q8_0 (best quality)</option>
+            <option value="16">FP16 (full precision)</option>
+          </select>
+        </div>
+        <div class="calc-row">
+          <label>Context Length:</label>
+          <select id="calcContext" onchange="calculateHardware()">
+            <option value="4096">4K tokens</option>
+            <option value="8192" selected>8K tokens</option>
+            <option value="16384">16K tokens</option>
+            <option value="32768">32K tokens</option>
+            <option value="65536">64K tokens</option>
+            <option value="128000">128K tokens</option>
+          </select>
+        </div>
+        <div class="calc-row">
+          <label>GPU VRAM:</label>
+          <select id="calcVram" onchange="calculateHardware()">
+            <option value="0">CPU only</option>
+            <option value="8">8GB</option>
+            <option value="12">12GB</option>
+            <option value="16">16GB</option>
+            <option value="24" selected>24GB</option>
+            <option value="32">32GB</option>
+            <option value="48">48GB</option>
+            <option value="80">80GB</option>
+          </select>
+        </div>
+        <div class="result-box">
+          <h4>Calculation Results</h4>
+          <div class="result-item"><span>Model Memory Required:</span><strong id="resModelMem">--</strong></div>
+          <div class="result-item"><span>KV Cache Memory:</span><strong id="resKvMem">--</strong></div>
+          <div class="result-item"><span>Total Memory Needed:</span><strong id="resTotalMem">--</strong></div>
+          <div class="result-item"><span>Your Available VRAM:</span><strong id="resAvailVram">--</strong></div>
+          <div class="result-item"><span>Offload to System RAM:</span><strong id="resOffload">--</strong></div>
+          <div class="result-item"><span>Estimated Speed:</span><strong id="resSpeed">--</strong></div>
+          <div class="result-item"><span>Feasibility:</span><strong id="resFeasible">--</strong></div>
+        </div>
+      </div>
+      <div class="card">
+        <h2>Hardware Recommendations</h2>
+        <h3>By Budget</h3>
+        <table>
+          <tr><th>Budget</th><th>Setup</th><th>Best For</th></tr>
+          <tr><td>$0 (Existing PC)</td><td>CPU inference, 8GB RAM</td><td>Phi-4-mini, simple chat</td></tr>
+          <tr><td>$500-$800</td><td>RTX 3060 12GB + 16GB RAM</td><td>8B models, coding, RAG</td></tr>
+          <tr><td>$1,200-$1,600</td><td>RTX 4070 Ti Super 16GB + 32GB RAM</td><td>70B with offload, fast 8B</td></tr>
+          <tr><td>$2,000-$2,500</td><td>RTX 4090 24GB + 64GB RAM</td><td>70B fully in VRAM, MoE models</td></tr>
+          <tr><td>$3,000+</td><td>Mac Studio M2 Ultra 128GB</td><td>110B native, excellent bandwidth</td></tr>
+          <tr><td>$5,000+</td><td>Dual RTX 4090 or A6000 48GB</td><td>120B+, enterprise workloads</td></tr>
+        </table>
+      </div>
+    </div>
+  </div>
+
+  <!-- RAG BUILDER SECTION -->
+  <div id="rag" class="section">
     <div class="card">
-      <div class="card-title">Recommended Stack</div>
-      <div style="margin-top:12px;color:var(--muted)">Configure options above</div>
+      <h2>RAG System Builder</h2>
+      <div class="rag-builder">
+        <div>
+          <h3>Configure Your RAG Stack</h3>
+          <div class="option-group">
+            <label>Document Type</label>
+            <select id="ragDocType" onchange="buildRag()">
+              <option value="general">General Knowledge Base</option>
+              <option value="legal">Legal / Compliance</option>
+              <option value="medical">Medical / Healthcare</option>
+              <option value="code">Code Documentation</option>
+              <option value="technical">Technical Manuals</option>
+              <option value="financial">Financial Reports</option>
+            </select>
+          </div>
+          <div class="option-group">
+            <label>Document Volume</label>
+            <select id="ragVolume" onchange="buildRag()">
+              <option value="small">&lt; 1,000 pages</option>
+              <option value="medium" selected>1,000-10,000 pages</option>
+              <option value="large">10,000-100,000 pages</option>
+              <option value="massive">100,000+ pages</option>
+            </select>
+          </div>
+          <div class="option-group">
+            <label>Languages</label>
+            <select id="ragLang" onchange="buildRag()">
+              <option value="en">English only</option>
+              <option value="multilingual">Multilingual (10+ languages)</option>
+              <option value="asian">Asian languages (CN, JP, KR)</option>
+              <option value="european">European languages</option>
+            </select>
+          </div>
+          <div class="option-group">
+            <label>Required Latency</label>
+            <select id="ragLatency" onchange="buildRag()">
+              <option value="fast">&lt; 2 seconds (real-time)</option>
+              <option value="normal" selected>2-5 seconds (standard)</option>
+              <option value="slow">5-10 seconds (batch OK)</option>
+            </select>
+          </div>
+          <div class="option-group">
+            <label>Privacy Level</label>
+            <select id="ragPrivacy" onchange="buildRag()">
+              <option value="standard">Standard (local only)</option>
+              <option value="high">High (air-gapped, no internet)</option>
+              <option value="medical">HIPAA / Medical grade</option>
+            </select>
+          </div>
+        </div>
+        <div>
+          <h3>Your Recommended RAG Stack</h3>
+          <div id="ragRecommendation" class="recommendation"></div>
+        </div>
+      </div>
+    </div>
+    <div class="grid grid-2">
+      <div class="card">
+        <h2>Embedding Model Guide</h2>
+        <table>
+          <tr><th>Model</th><th>Size</th><th>Best For</th><th>Speed</th></tr>
+          <tr><td><strong>BGE-M3</strong></td><td>0.5B</td><td>General, 100+ languages</td><td>5/5</td></tr>
+          <tr><td><strong>E5-mistral-7b</strong></td><td>7B</td><td>Highest accuracy (EN)</td><td>3/5</td></tr>
+          <tr><td><strong>GTE-large</strong></td><td>0.3B</td><td>Fast, good quality</td><td>5/5</td></tr>
+          <tr><td><strong>BGE-reranker-v2-m3</strong></td><td>0.5B</td><td>Reranking (critical!)</td><td>4/5</td></tr>
+          <tr><td><strong>multilingual-e5-large</strong></td><td>0.5B</td><td>Multilingual retrieval</td><td>4/5</td></tr>
+        </table>
+      </div>
+      <div class="card">
+        <h2>Vector Database Guide</h2>
+        <table>
+          <tr><th>Database</th><th>Best For</th><th>Local?</th></tr>
+          <tr><td><strong>ChromaDB</strong></td><td>Beginners, Python projects</td><td><span class="badge badge-green">Yes</span></td></tr>
+          <tr><td><strong>FAISS</strong></td><td>Research, GPU acceleration</td><td><span class="badge badge-green">Yes</span></td></tr>
+          <tr><td><strong>Milvus</strong></td><td>Enterprise, massive scale</td><td><span class="badge badge-green">Yes</span></td></tr>
+          <tr><td><strong>Qdrant</strong></td><td>Production, Rust-based</td><td><span class="badge badge-green">Yes</span></td></tr>
+          <tr><td><strong>LanceDB</strong></td><td>Serverless, embedded</td><td><span class="badge badge-green">Yes</span></td></tr>
+        </table>
+      </div>
     </div>
   </div>
-</div>
 
-<!-- ===== EVALUATION ===== -->
-<div id="page-eval" class="page">
-  <div class="page-header">
-    <h1>🧪 Evaluation Framework</h1>
-    <p>Build and track evaluation suites for your models</p>
-  </div>
-  <div class="card">
-    <div class="card-title">Test Your Models</div>
-    <table class="tbl">
-      <thead><tr><th>Model</th><th>Accuracy</th><th>Latency</th><th>Status</th></tr></thead>
-      <tbody>
-        <tr><td>Qwen 3 72B</td><td>88%</td><td>2.1s</td><td><span class="badge-pill green">Ready</span></td></tr>
-        <tr><td>Llama 3.3 8B</td><td>74%</td><td>0.4s</td><td><span class="badge-pill yellow">Good</span></td></tr>
-      </tbody>
-    </table>
-  </div>
-</div>
+  <!-- SECURITY SECTION (NEW) -->
+  <div id="security" class="section">
+    <div class="alert-box alert-danger">
+      <strong>CRITICAL:</strong> Most local LLM deployments are insecure by default. Exposed APIs, unverified model weights, and missing prompt injection defenses create serious attack surfaces.
+    </div>
 
-<!-- ===== PROMPTS ===== -->
-<div id="page-prompts" class="page">
-  <div class="page-header">
-    <h1>📝 Prompt Version Control</h1>
-    <p>Version and manage your system prompts</p>
-  </div>
-  <div class="card">
-    <div class="card-title">Prompt Versions</div>
-    <p style="color:var(--muted)">Manage your prompts like code — version, test, and roll back.</p>
-  </div>
-</div>
+    <div class="grid grid-2">
+      <div class="card security-card">
+        <h2>Model Integrity & Verification</h2>
+        <div class="alert-box alert-warning">
+          <strong>Threat:</strong> GGUF files can contain malicious chat templates that hijack model behavior. Model weights can be tampered with post-download.
+        </div>
+        <h3>Verification Checklist</h3>
+        <div class="checklist-item"><input type="checkbox" id="sec1" onchange="toggleCheck(this)"><label for="sec1"><strong>Verify checksums</strong> -- Compare SHA-256 of downloaded GGUF against official source (Hugging Face, model card)</label></div>
+        <div class="checklist-item"><input type="checkbox" id="sec2" onchange="toggleCheck(this)"><label for="sec2"><strong>Inspect chat templates</strong> -- Compare embedded template against official source. Any divergence = red flag</label></div>
+        <div class="checklist-item"><input type="checkbox" id="sec3" onchange="toggleCheck(this)"><label for="sec3"><strong>Use hard-coded templates</strong> -- For known model families, use trusted template library instead of bundled one</label></div>
+        <div class="checklist-item"><input type="checkbox" id="sec4" onchange="toggleCheck(this)"><label for="sec4"><strong>Store hashes securely</strong> -- Keep reference hashes in encrypted/signed file, not alongside models</label></div>
+        <div class="checklist-item"><input type="checkbox" id="sec5" onchange="toggleCheck(this)"><label for="sec5"><strong>Re-verify on every load</strong> -- Compute hash at model load time, abort on mismatch</label></div>
+        <div class="code-block">
+<span class="comment"># Verify GGUF checksum</span>
+sha256sum llama-3.3-70b.Q4_K_M.gguf
+<span class="comment"># Compare against published hash on Hugging Face model card</span>
 
-<!-- ===== HALLUCINATION ===== -->
-<div id="page-hallucination" class="page">
-  <div class="page-header">
-    <h1>🚨 Hallucination Detection</h1>
-    <p>Detect and measure model hallucinations</p>
-  </div>
-  <div class="card">
-    <div class="card-title">Hallucination Metrics</div>
-    <p style="color:var(--muted)">Configure detection rules and monitors</p>
-  </div>
-</div>
+<span class="comment"># Inspect chat template inside GGUF</span>
+python3 -c "from gguf import GGUFReader; r=GGUFReader('model.gguf'); print(r.metadata['tokenizer.chat_template'])"
+        </div>
+      </div>
 
-<!-- ===== FALLBACK ===== -->
-<div id="page-fallback" class="page">
-  <div class="page-header">
-    <h1>🔀 Fallback Chain</h1>
-    <p>Set up graceful degradation for production</p>
-  </div>
-  <div class="card">
-    <div class="card-title">Fallback Strategy</div>
-    <p style="color:var(--muted)">Configure your fallback model chain</p>
-  </div>
-</div>
+      <div class="card security-card">
+        <h2>API Authentication & Access Control</h2>
+        <div class="alert-box alert-warning">
+          <strong>Threat:</strong> Unauthenticated inference endpoints allow anyone with network access to exhaust GPU resources or extract model behavior.
+        </div>
+        <h3>Required Controls</h3>
+        <div class="checklist-item"><input type="checkbox" id="sec6" onchange="toggleCheck(this)"><label for="sec6"><strong>JWT-based auth</strong> -- Short expiration windows (15-60 min), scoped claims per user role</label></div>
+        <div class="checklist-item"><input type="checkbox" id="sec7" onchange="toggleCheck(this)"><label for="sec7"><strong>RBAC separation</strong> -- Inference consumers != Prompt engineers != Model admins != Auditors</label></div>
+        <div class="checklist-item"><input type="checkbox" id="sec8" onchange="toggleCheck(this)"><label for="sec8"><strong>Token-aware rate limiting</strong> -- Per-user and per-IP limits at API gateway layer</label></div>
+        <div class="checklist-item"><input type="checkbox" id="sec9" onchange="toggleCheck(this)"><label for="sec9"><strong>API keys via env vars</strong> -- Never hardcode; rotate quarterly</label></div>
+        <div class="checklist-item"><input type="checkbox" id="sec10" onchange="toggleCheck(this)"><label for="sec10"><strong>Never expose inference directly</strong> -- Always place behind API gateway with auth</label></div>
+        <div class="code-block">
+<span class="comment"># nginx.conf example for API gateway</span>
+location /v1/chat/completions {
+    auth_request /auth;
+    limit_req_zone $binary_remote_addr zone=llm:10m rate=10r/m;
+    proxy_pass http://llm-backend:8000;
+}
+        </div>
+      </div>
+    </div>
 
-<!-- ===== CONTEXT ===== -->
-<div id="page-context" class="page">
-  <div class="page-header">
-    <h1>📏 Context Management</h1>
-    <p>Optimize context window usage</p>
-  </div>
-  <div class="card">
-    <div class="card-title">Context Configuration</div>
-    <p style="color:var(--muted)">Manage and optimize context windows</p>
-  </div>
-</div>
+    <div class="grid grid-2">
+      <div class="card security-card">
+        <h2>Container Hardening</h2>
+        <div class="alert-box alert-info">Default Docker settings leave significant attack surface. Harden containers before production.</div>
+        <div class="checklist-item"><input type="checkbox" id="sec11" onchange="toggleCheck(this)"><label for="sec11"><strong>Run as non-root</strong> -- user: "1000:1000" in compose</label></div>
+        <div class="checklist-item"><input type="checkbox" id="sec12" onchange="toggleCheck(this)"><label for="sec12"><strong>Read-only root filesystem</strong> -- read_only: true</label></div>
+        <div class="checklist-item"><input type="checkbox" id="sec13" onchange="toggleCheck(this)"><label for="sec13"><strong>Drop all capabilities</strong> -- cap_drop: [ALL], add only SYS_NICE if needed</label></div>
+        <div class="checklist-item"><input type="checkbox" id="sec14" onchange="toggleCheck(this)"><label for="sec14"><strong>Custom seccomp profile</strong> -- Restrict available syscalls</label></div>
+        <div class="checklist-item"><input type="checkbox" id="sec15" onchange="toggleCheck(this)"><label for="sec15"><strong>no-new-privileges</strong> -- Prevent privilege escalation</label></div>
+        <div class="checklist-item"><input type="checkbox" id="sec16" onchange="toggleCheck(this)"><label for="sec16"><strong>Internal network only</strong> -- No outbound internet via NAT</label></div>
+        <div class="checklist-item"><input type="checkbox" id="sec17" onchange="toggleCheck(this)"><label for="sec17"><strong>Pin image versions</strong> -- Never use :latest in production</label></div>
+        <div class="checklist-item"><input type="checkbox" id="sec18" onchange="toggleCheck(this)"><label for="sec18"><strong>Resource limits</strong> -- cpus, memory limits in compose</label></div>
+        <div class="code-block">
+services:
+  llm-inference:
+    image: vllm/vllm-openai:v0.4.2  <span class="comment"># PINNED</span>
+    user: <span class="cmd">"1000:1000"</span>
+    read_only: <span class="cmd">true</span>
+    cap_drop: [<span class="cmd">ALL</span>]
+    cap_add: [SYS_NICE]
+    security_opt:
+      - <span class="cmd">no-new-privileges:true</span>
+      - seccomp:./seccomp-profile.json
+    networks:
+      - <span class="cmd">inference_internal</span>  <span class="comment"># internal: true</span>
+        </div>
+      </div>
 
-<!-- ===== LICENSE ===== -->
-<div id="page-license" class="page">
-  <div class="page-header">
-    <h1>⚖️ License Risk</h1>
-    <p>Analyze license compatibility for commercial use</p>
-  </div>
-  <div class="card">
-    <div class="card-title">License Compliance</div>
-    <p style="color:var(--muted)">Check model licenses for your use case</p>
-  </div>
-</div>
+      <div class="card security-card">
+        <h2>Prompt Injection & Output Safety</h2>
+        <div class="alert-box alert-warning">
+          <strong>Threat:</strong> Local models without guardrails can be jailbroken to produce harmful content or leak system prompts.
+        </div>
+        <h3>Defense Layers</h3>
+        <div class="checklist-item"><input type="checkbox" id="sec19" onchange="toggleCheck(this)"><label for="sec19"><strong>Input validation</strong> -- Max length checks, character filtering, regex patterns for injection attempts</label></div>
+        <div class="checklist-item"><input type="checkbox" id="sec20" onchange="toggleCheck(this)"><label for="sec20"><strong>Llama Guard 3</strong> -- Run 1B-8B safety model as pre-filter on all inputs</label></div>
+        <div class="checklist-item"><input type="checkbox" id="sec21" onchange="toggleCheck(this)"><label for="sec21"><strong>Output filtering</strong> -- Post-process responses for PII, toxic content, code injection</label></div>
+        <div class="checklist-item"><input type="checkbox" id="sec22" onchange="toggleCheck(this)"><label for="sec22"><strong>System prompt isolation</strong> -- Never expose system prompt to user; use defensive templating</label></div>
+        <div class="checklist-item"><input type="checkbox" id="sec23" onchange="toggleCheck(this)"><label for="sec23"><strong>Defensive chat templates</strong> -- Inject guardrails at template level, not just system prompt</label></div>
+        <div class="checklist-item"><input type="checkbox" id="sec24" onchange="toggleCheck(this)"><label for="sec24"><strong>Structured output enforcement</strong> -- Use grammars/JSON schema to constrain outputs</label></div>
+      </div>
+    </div>
 
-<!-- ===== LAYMAN ===== -->
-<div id="page-layman" class="page">
-  <div class="page-header">
-    <h1>🙋 Plain English Guide</h1>
-    <p>Non-technical explanation of local LLMs</p>
+    <div class="card security-card">
+      <h2>Data Isolation & Network Security</h2>
+      <div class="grid grid-2">
+        <div>
+          <h3>RAG Data Isolation</h3>
+          <div class="checklist-item"><input type="checkbox" id="sec25" onchange="toggleCheck(this)"><label for="sec25"><strong>Namespace isolation</strong> -- Separate collections per tenant in vector DB</label></div>
+          <div class="checklist-item"><input type="checkbox" id="sec26" onchange="toggleCheck(this)"><label for="sec26"><strong>Tenant-scoped queries</strong> -- Filter retrieval by tenant_id on every query</label></div>
+          <div class="checklist-item"><input type="checkbox" id="sec27" onchange="toggleCheck(this)"><label for="sec27"><strong>Encrypted model storage</strong> -- LUKS/BitLocker for model weights at rest</label></div>
+          <div class="checklist-item"><input type="checkbox" id="sec28" onchange="toggleCheck(this)"><label for="sec28"><strong>Read-only model mounts</strong> -- Bind mount with :ro flag</label></div>
+        </div>
+        <div>
+          <h3>Network Segmentation</h3>
+          <div class="checklist-item"><input type="checkbox" id="sec29" onchange="toggleCheck(this)"><label for="sec29"><strong>mTLS between services</strong> -- Gateway <-> Inference <-> Vector DB <-> Logging</label></div>
+          <div class="checklist-item"><input type="checkbox" id="sec30" onchange="toggleCheck(this)"><label for="sec30"><strong>Firewall rules</strong> -- Block host-to-container traffic from untrusted sources</label></div>
+          <div class="checklist-item"><input type="checkbox" id="sec31" onchange="toggleCheck(this)"><label for="sec31"><strong>Explicit subnets</strong> -- Prevent Docker network conflicts</label></div>
+          <div class="checklist-item"><input type="checkbox" id="sec32" onchange="toggleCheck(this)"><label for="sec32"><strong>Disable WiFi/Bluetooth/USB</strong> -- On air-gapped inference nodes</label></div>
+        </div>
+      </div>
+    </div>
   </div>
-  <div class="card">
-    <div class="card-title">What is a Local LLM?</div>
-    <p style="color:var(--muted)">Simple explanations for everyone</p>
-  </div>
-</div>
 
-<!-- ===== INDUSTRY ===== -->
-<div id="page-industry" class="page">
-  <div class="page-header">
-    <h1>📈 Industry Data</h1>
-    <p>Market trends and model releases — 2026</p>
-  </div>
-  <div class="card">
-    <div class="card-title">Recent Releases</div>
-    <p style="color:var(--muted)">Latest model benchmarks and announcements</p>
-  </div>
-</div>
+  <!-- MONITORING SECTION (NEW) -->
+  <div id="monitoring" class="section">
+    <div class="alert-box alert-info">
+      <strong>CRITICAL INSIGHT:</strong> You cannot optimize what you cannot measure. Most local LLM deployments fly blind -- no latency tracking, no GPU OOM alerts, no cost visibility.
+    </div>
 
-<!-- ===== SME SOURCES ===== -->
-<div id="page-sme-sources" class="page">
-  <div class="page-header">
-    <h1>🔬 SME Sources</h1>
-    <p>Expert research and documentation</p>
-  </div>
-  <div class="card">
-    <div class="card-title">Expert Resources</div>
-    <p style="color:var(--muted)">Key papers and sources from researchers</p>
-  </div>
-</div>
+    <div class="grid grid-4">
+      <div class="metric-card"><div class="value" id="metricTtft">--</div><div class="label">TTFT (ms)</div></div>
+      <div class="metric-card"><div class="value" id="metricTps">--</div><div class="label">Tokens/sec</div></div>
+      <div class="metric-card"><div class="value" id="metricVram">--</div><div class="label">VRAM Usage %</div></div>
+      <div class="metric-card"><div class="value" id="metricQueue">--</div><div class="label">Queue Depth</div></div>
+    </div>
 
-<!-- ===== SECURITY ===== -->
-<div id="page-security" class="page">
-  <div class="page-header">
-    <h1>🔒 Security</h1>
-    <p>Secure local LLM deployment</p>
-  </div>
-  <div class="card">
-    <div class="card-title">Security Checklist</div>
-    <p style="color:var(--muted)">Best practices for production deployment</p>
-  </div>
-</div>
+    <div class="grid grid-2">
+      <div class="card monitor-card">
+        <h2>Core Metrics to Monitor</h2>
+        <table>
+          <tr><th>Metric</th><th>Target</th><th>Alert If</th><th>Tool</th></tr>
+          <tr><td><strong>TTFT</strong><br><span style="color:var(--text-muted);font-size:0.8rem">Time To First Token</span></td><td>&lt; 500ms</td><td>&gt; 2s sustained</td><td>Prometheus</td></tr>
+          <tr><td><strong>TPS</strong><br><span style="color:var(--text-muted);font-size:0.8rem">Tokens Per Second</span></td><td>&gt; 30 t/s</td><td>&lt; 10 t/s sustained</td><td>Prometheus</td></tr>
+          <tr><td><strong>Queue Depth</strong></td><td>&lt; 10</td><td>&gt; 100</td><td>Prometheus</td></tr>
+          <tr><td><strong>VRAM Usage</strong></td><td>&lt; 85%</td><td>&gt; 95% for &gt;2min</td><td>nvidia-smi / DCGM</td></tr>
+          <tr><td><strong>GPU Temperature</strong></td><td>&lt; 80C</td><td>&gt; 90C for &gt;5min</td><td>Node Exporter</td></tr>
+          <tr><td><strong>Error Rate</strong></td><td>&lt; 0.1%</td><td>&gt; 1%</td><td>Application logs</td></tr>
+          <tr><td><strong>P95 Latency</strong></td><td>&lt; 5s</td><td>&gt; 10s</td><td>Prometheus histogram</td></tr>
+          <tr><td><strong>Model Load Time</strong></td><td>&lt; 60s</td><td>&gt; 120s</td><td>Application logs</td></tr>
+        </table>
+      </div>
 
-<!-- ===== MONITORING ===== -->
-<div id="page-monitoring" class="page">
-  <div class="page-header">
-    <h1>📡 Monitoring</h1>
-    <p>Monitor your local LLM in production</p>
-  </div>
-  <div class="card">
-    <div class="card-title">Monitoring Setup</div>
-    <p style="color:var(--muted)">Metrics and alerts for production models</p>
-  </div>
-</div>
+      <div class="card monitor-card">
+        <h2>Alerting Rules</h2>
+        <div class="code-block">
+<span class="comment"># prometheus/alerts.yml</span>
+groups:
+  - name: llm-alerts
+    rules:
+      - alert: HighTTFT
+        expr: llm_ttft_seconds > 2
+        for: 5m
+        annotations:
+          summary: "TTFT above 2s for 5 minutes"
 
-<!-- ===== COST ===== -->
-<div id="page-cost" class="page">
-  <div class="page-header">
-    <h1>💰 Cost Analysis</h1>
-    <p>Compare hardware and operational costs</p>
+      - alert: GPUMemoryCritical
+        expr: nvidia_gpu_memory_used_bytes / nvidia_gpu_memory_total_bytes > 0.95
+        for: 2m
+        annotations:
+          summary: "GPU memory >95% -- OOM imminent"
+
+      - alert: QueueSaturation
+        expr: llm_queue_depth > 100
+        for: 1m
+        annotations:
+          summary: "Request queue >100 -- scaling needed"
+
+      - alert: GPUOverheating
+        expr: nvidia_gpu_temperature_celsius > 90
+        for: 5m
+        annotations:
+          summary: "GPU temp >90C for 5 minutes"
+
+      - alert: HighErrorRate
+        expr: rate(llm_requests_failed_total[5m]) / rate(llm_requests_total[5m]) > 0.01
+        for: 3m
+        annotations:
+          summary: "Error rate >1%"
+        </div>
+      </div>
+    </div>
+
+    <div class="card monitor-card">
+      <h2>Monitoring Stack Setup</h2>
+      <div class="grid grid-3">
+        <div>
+          <h3>1. Prometheus</h3>
+          <div class="code-block">
+<span class="comment"># Scrape vLLM metrics</span>
+scrape_configs:
+  - job_name: 'vllm'
+    static_configs:
+      - targets: ['llm:8000']
+    metrics_path: /metrics
+    scrape_interval: 15s
+          </div>
+          <p style="color:var(--text-muted);font-size:0.85rem;margin-top:8px">Scrapes: TTFT, TPS, queue depth, token counts, error rates</p>
+        </div>
+        <div>
+          <h3>2. Grafana Dashboards</h3>
+          <div class="code-block">
+<span class="comment"># Key panels to create:</span>
+- Request rate & latency (p50/p95/p99)
+- GPU utilization & memory per device
+- Token throughput over time
+- Error rate & type breakdown
+- Queue depth & wait times
+- Cost per 1K tokens (local vs cloud)
+          </div>
+          <p style="color:var(--text-muted);font-size:0.85rem;margin-top:8px">Create "cluster health" traffic-light dashboard for each node</p>
+        </div>
+        <div>
+          <h3>3. Logging Pipeline</h3>
+          <div class="code-block">
+<span class="comment"># Log METADATA only -- never log prompts</span>
+{
+  "timestamp": "2026-06-19T10:00:00Z",
+  "request_id": "uuid",
+  "model": "qwen3-8b",
+  "latency_ms": 1450,
+  "input_tokens": 512,
+  "output_tokens": 256,
+  "status": "success",
+  "user_id": "anon"
+  <span class="danger">// NEVER include "messages" array</span>
+}
+          </div>
+          <p style="color:var(--text-muted);font-size:0.85rem;margin-top:8px">Use Loki + Promtail for log aggregation. Redact PII inline.</p>
+        </div>
+      </div>
+    </div>
+
+    <div class="card monitor-card">
+      <h2>Cost Tracking Dashboard</h2>
+      <div class="grid grid-2">
+        <div>
+          <h3>Track These Costs</h3>
+          <table>
+            <tr><th>Cost Category</th><th>How to Calculate</th></tr>
+            <tr><td>Hardware depreciation</td><td>Purchase price / 3 years / monthly</td></tr>
+            <tr><td>Electricity</td><td>kWh x rate x GPU power draw</td></tr>
+            <tr><td>Cooling</td><td>~30% of electricity cost</td></tr>
+            <tr><td>Maintenance labor</td><td>Hours/month x engineer rate</td></tr>
+            <tr><td>Cloud fallback</td><td>Track hybrid routing %</td></tr>
+          </table>
+        </div>
+        <div>
+          <h3>Equivalent Cloud Cost</h3>
+          <div class="code-block">
+<span class="comment"># Cost per 1M tokens comparison</span>
+Local:  $0.50  (electricity + depreciation)
+Cloud:  $3.00  (GPT-4o API)
+Savings: <span class="cmd">83%</span> per 1M tokens
+
+<span class="comment"># Break-even calculation</span>
+Hardware: $2,500 (RTX 4090 setup)
+Monthly savings: $500 (vs cloud at your volume)
+ROI: <span class="cmd">5 months</span>
+          </div>
+        </div>
+      </div>
+    </div>
   </div>
-  <div class="card">
-    <div class="card-title">Cost Calculator</div>
-    <p style="color:var(--muted)">Compute total cost of ownership</p>
+
+  <!-- DEPLOYMENT SECTION (NEW) -->
+  <div id="deployment" class="section">
+    <div class="alert-box alert-info">
+      <strong>PRODUCTION READINESS:</strong> A demo is not production. You need CI/CD, health checks, rollback plans, and runbooks before serving real users.
+    </div>
+
+    <div class="grid grid-2">
+      <div class="card">
+        <h2>CI/CD Pipeline</h2>
+        <div class="code-block">
+<span class="comment"># .github/workflows/deploy.yml</span>
+name: Deploy LLM Inference
+on:
+  push:
+    branches: [main]
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Model Integrity Check
+        run: |
+          sha256sum -c models/SHA256SUMS
+          python scripts/verify_chat_template.py
+      - name: Load Test
+        run: locust -f tests/load_test.py --host http://staging
+      - name: Safety Test
+        run: pytest tests/test_prompt_injection.py
+
+  deploy-staging:
+    needs: test
+    steps:
+      - name: Blue-Green Deploy
+        run: |
+          docker-compose -f docker-compose.staging.yml up -d --no-deps llm-green
+          curl -f http://staging/health || exit 1
+          ./scripts/switch-traffic.sh green
+
+  deploy-production:
+    needs: deploy-staging
+    environment: production
+    steps:
+      - name: Canary Deploy (10%)
+        run: ./scripts/canary-deploy.sh 10
+      - name: Monitor for 30min
+        run: ./scripts/wait-for-metrics.sh --p95-latency < 5s --error-rate < 0.1%
+      - name: Full Rollout
+        run: ./scripts/canary-deploy.sh 100
+        </div>
+      </div>
+
+      <div class="card">
+        <h2>Health Checks & Graceful Shutdown</h2>
+        <div class="code-block">
+<span class="comment"># Health check endpoint</span>
+@app.get("/health")
+async def health():
+    return {
+        "status": "healthy",
+        "model_loaded": model.is_loaded(),
+        "gpu_available": torch.cuda.is_available(),
+        "vram_free_gb": get_free_vram(),
+        "queue_depth": request_queue.size(),
+        "last_inference": time_since_last_request()
+    }
+
+<span class="comment"># Graceful shutdown handler</span>
+@app.on_event("shutdown")
+async def shutdown():
+    <span class="cmd"># Stop accepting new requests</span>
+    request_queue.close()
+    <span class="cmd"># Wait for in-flight requests</span>
+    await request_queue.drain(timeout=30)
+    <span class="cmd"># Save KV cache if needed</span>
+    model.save_kv_cache()
+    <span class="cmd"># Release GPU memory</span>
+    torch.cuda.empty_cache()
+        </div>
+
+        <h3>Deployment Patterns</h3>
+        <table>
+          <tr><th>Pattern</th><th>Use Case</th><th>Risk</th></tr>
+          <tr><td><strong>Blue-Green</strong></td><td>Zero-downtime updates</td><td>2x resource usage during switch</td></tr>
+          <tr><td><strong>Canary</strong></td><td>Gradual rollout (10% -> 50% -> 100%)</td><td>Complex traffic splitting</td></tr>
+          <tr><td><strong>A/B Testing</strong></td><td>Compare model versions</td><td>Requires careful metric design</td></tr>
+          <tr><td><strong>Hot Standby</strong></td><td>Instant failover</td><td>Always-on cost</td></tr>
+        </table>
+      </div>
+    </div>
+
+    <div class="card">
+      <h2>Production Readiness Checklist</h2>
+      <div class="grid grid-2">
+        <div>
+          <h3>Pre-Deployment</h3>
+          <div class="checklist-item"><input type="checkbox" id="dep1" onchange="toggleCheck(this)"><label for="dep1">Hardware sized to weights + KV cache + 2-4GB overhead + 20% headroom</label></div>
+          <div class="checklist-item"><input type="checkbox" id="dep2" onchange="toggleCheck(this)"><label for="dep2">Quantization validated against FP16 baseline on representative tasks</label></div>
+          <div class="checklist-item"><input type="checkbox" id="dep3" onchange="toggleCheck(this)"><label for="dep3">Inference engine benchmarked with expected concurrent load</label></div>
+          <div class="checklist-item"><input type="checkbox" id="dep4" onchange="toggleCheck(this)"><label for="dep4">Container images pinned, vulnerability-scanned</label></div>
+          <div class="checklist-item"><input type="checkbox" id="dep5" onchange="toggleCheck(this)"><label for="dep5">OS optimizations: huge pages, NUMA, CPU governor=performance</label></div>
+          <div class="checklist-item"><input type="checkbox" id="dep6" onchange="toggleCheck(this)"><label for="dep6">24-hour GPU burn-in test passed</label></div>
+          <div class="checklist-item"><input type="checkbox" id="dep7" onchange="toggleCheck(this)"><label for="dep7">Model checksums verified after loading from storage</label></div>
+        </div>
+        <div>
+          <h3>Post-Deployment</h3>
+          <div class="checklist-item"><input type="checkbox" id="dep8" onchange="toggleCheck(this)"><label for="dep8">Prometheus scraping confirmed, Grafana dashboards live</label></div>
+          <div class="checklist-item"><input type="checkbox" id="dep9" onchange="toggleCheck(this)"><label for="dep9">Alerting rules active for TTFT, TPS, queue depth, VRAM, error rate</label></div>
+          <div class="checklist-item"><input type="checkbox" id="dep10" onchange="toggleCheck(this)"><label for="dep10">Logging pipeline capturing metadata (NOT prompt content) with PII redaction</label></div>
+          <div class="checklist-item"><input type="checkbox" id="dep11" onchange="toggleCheck(this)"><label for="dep11">Runbook documented for: OOM kills, driver crashes, model corruption, queue saturation</label></div>
+          <div class="checklist-item"><input type="checkbox" id="dep12" onchange="toggleCheck(this)"><label for="dep12">Cost tracking dashboard comparing actual spend vs cloud API equivalent</label></div>
+          <div class="checklist-item"><input type="checkbox" id="dep13" onchange="toggleCheck(this)"><label for="dep13">Blue-green or canary deployment tested with rollback procedure</label></div>
+          <div class="checklist-item"><input type="checkbox" id="dep14" onchange="toggleCheck(this)"><label for="dep14">Disaster recovery tested quarterly: model backup restore, failover to standby</label></div>
+        </div>
+      </div>
+    </div>
+
+    <div class="card">
+      <h2>Runbook: Common Failure Modes</h2>
+      <div class="grid grid-2">
+        <div>
+          <h3>GPU OOM (Out of Memory)</h3>
+          <div class="code-block">
+<span class="comment"># Symptoms: Requests fail with CUDA OOM</span>
+<span class="comment"># Diagnosis:</span>
+nvidia-smi  <span class="cmd"># Check VRAM usage</span>
+dmesg | grep -i oom  <span class="cmd"># Kernel OOM logs</span>
+
+<span class="comment"># Remediation:</span>
+1. Reduce MAX_MODEL_LEN in config
+2. Enable KV cache quantization
+3. Reduce batch size
+4. Offload more layers to CPU RAM
+5. Restart inference container
+          </div>
+        </div>
+        <div>
+          <h3>Model Corruption / Load Failure</h3>
+          <div class="code-block">
+<span class="comment"># Symptoms: Model fails to load, checksum mismatch</span>
+<span class="comment"># Diagnosis:</span>
+sha256sum model.gguf  <span class="cmd"># Verify integrity</span>
+ls -la /models/  <span class="cmd"># Check file sizes</span>
+
+<span class="comment"># Remediation:</span>
+1. Re-download from verified source
+2. Check disk health (smartctl)
+3. Verify chat template matches official
+4. Load previous known-good version
+5. Alert on-call for manual verification
+          </div>
+        </div>
+        <div>
+          <h3>Queue Saturation</h3>
+          <div class="code-block">
+<span class="comment"># Symptoms: Latency spikes, timeout errors</span>
+<span class="comment"># Diagnosis:</span>
+curl http://localhost:8000/metrics | grep queue_depth
+
+<span class="comment"># Remediation:</span>
+1. Enable auto-scaling (add GPU nodes)
+2. Route excess to cloud fallback
+3. Implement request prioritization
+4. Reduce context length temporarily
+5. Scale down non-critical workloads
+          </div>
+        </div>
+        <div>
+          <h3>Driver / CUDA Crash</h3>
+          <div class="code-block">
+<span class="comment"># Symptoms: GPU disappears, NVML errors</span>
+<span class="comment"># Diagnosis:</span>
+nvidia-smi  <span class="cmd"># Check driver status</span>
+journalctl -u nvidia-persistenced  <span class="cmd"># Driver logs</span>
+
+<span class="comment"># Remediation:</span>
+1. Restart nvidia-persistenced service
+2. Reload NVIDIA kernel module
+3. If persistent: downgrade driver version
+4. Failover to standby GPU/node
+5. Schedule maintenance window
+          </div>
+        </div>
+      </div>
+    </div>
   </div>
-</div>
 
-<!-- ===== QUICKSTART ===== -->
-<div id="page-quickstart" class="page">
-  <div class="page-header">
-    <h1>🚀 Quick Start</h1>
-    <p>Get up and running in 5 minutes</p>
+  <!-- COMPLIANCE SECTION (NEW) -->
+  <div id="compliance" class="section">
+    <div class="alert-box alert-warning">
+      <strong>REGULATORY LANDSCAPE 2026:</strong> EU AI Act high-risk obligations apply from August 2026. NIST AI RMF is becoming the de facto standard. SOC 2 Type II is expected for enterprise.
+    </div>
+
+    <div class="grid grid-2">
+      <div class="card">
+        <h2>EU AI Act Compliance Mapping</h2>
+        <table>
+          <tr><th>Security Practice</th><th>EU AI Act Article</th><th>Status</th></tr>
+          <tr><td>JWT Authentication & RBAC</td><td>Art. 9 (Risk Management)</td><td><span class="badge badge-green">Required</span></td></tr>
+          <tr><td>Rate Limiting</td><td>Art. 9 (Risk Management)</td><td><span class="badge badge-green">Required</span></td></tr>
+          <tr><td>Model Weight Encryption & Isolation</td><td>Art. 10 (Data Governance)</td><td><span class="badge badge-green">Required</span></td></tr>
+          <tr><td>RAG Pipeline Access Controls</td><td>Art. 10 (Data Governance)</td><td><span class="badge badge-green">Required</span></td></tr>
+          <tr><td>Inference Logging with PII Redaction</td><td>Art. 12 (Record-Keeping)</td><td><span class="badge badge-green">Required</span></td></tr>
+          <tr><td>Container Hardening</td><td>Art. 9 (Risk Management)</td><td><span class="badge badge-yellow">Recommended</span></td></tr>
+          <tr><td>Network Segmentation & mTLS</td><td>Art. 9 (Risk Management)</td><td><span class="badge badge-yellow">Recommended</span></td></tr>
+          <tr><td>Threat Modeling</td><td>Art. 9 (Risk Management)</td><td><span class="badge badge-green">Required</span></td></tr>
+          <tr><td>Human Oversight</td><td>Art. 14 (Human Oversight)</td><td><span class="badge badge-green">Required</span></td></tr>
+          <tr><td>Transparency & Documentation</td><td>Art. 13 (Transparency)</td><td><span class="badge badge-green">Required</span></td></tr>
+        </table>
+        <p style="color:var(--text-muted);font-size:0.85rem;margin-top:12px">Note: These mappings are illustrative. Consult qualified legal counsel for compliance determination.</p>
+      </div>
+
+      <div class="card">
+        <h2>NIST AI RMF & SOC 2 Mapping</h2>
+        <table>
+          <tr><th>Security Practice</th><th>NIST Function</th><th>SOC 2 Criteria</th></tr>
+          <tr><td>JWT Authentication & RBAC</td><td>Govern (GV)</td><td>CC6.1 (Logical Access)</td></tr>
+          <tr><td>Rate Limiting</td><td>Manage (MG)</td><td>CC6.6 (System Boundaries)</td></tr>
+          <tr><td>Model Weight Encryption</td><td>Manage (MG)</td><td>CC6.7 (Data Classification)</td></tr>
+          <tr><td>RAG Access Controls</td><td>Govern (GV)</td><td>CC6.3 (Role-Based Access)</td></tr>
+          <tr><td>Inference Logging</td><td>Measure (ME)</td><td>CC7.2 (Monitoring)</td></tr>
+          <tr><td>Container Hardening</td><td>Manage (MG)</td><td>CC6.8 (System Hardening)</td></tr>
+          <tr><td>Network Segmentation</td><td>Manage (MG)</td><td>CC6.6 (System Boundaries)</td></tr>
+          <tr><td>Threat Modeling</td><td>Map (MP)</td><td>CC3.2 (Risk Assessment)</td></tr>
+        </table>
+      </div>
+    </div>
+
+    <div class="card">
+      <h2>Audit-Ready Security Posture</h2>
+      <div class="grid grid-2">
+        <div>
+          <h3>Required Documentation</h3>
+          <div class="checklist-item"><input type="checkbox" id="comp1" onchange="toggleCheck(this)"><label for="comp1">Technical documentation of model architecture, training data, fine-tuning process</label></div>
+          <div class="checklist-item"><input type="checkbox" id="comp2" onchange="toggleCheck(this)"><label for="comp2">Risk management system with identified risks and mitigation measures</label></div>
+          <div class="checklist-item"><input type="checkbox" id="comp3" onchange="toggleCheck(this)"><label for="comp3">Data governance procedures (quality, bias testing, data sheets)</label></div>
+          <div class="checklist-item"><input type="checkbox" id="comp4" onchange="toggleCheck(this)"><label for="comp4">Human oversight plan with clear roles and intervention procedures</label></div>
+          <div class="checklist-item"><input type="checkbox" id="comp5" onchange="toggleCheck(this)"><label for="comp5">Transparency documentation: capabilities, limitations, intended use cases</label></div>
+          <div class="checklist-item"><input type="checkbox" id="comp6" onchange="toggleCheck(this)"><label for="comp6">Incident response plan for AI-specific scenarios (model compromise, bias drift)</label></div>
+        </div>
+        <div>
+          <h3>Continuous Compliance Monitoring</h3>
+          <div class="checklist-item"><input type="checkbox" id="comp7" onchange="toggleCheck(this)"><label for="comp7">Automated scanning verifying container configs match hardened baselines</label></div>
+          <div class="checklist-item"><input type="checkbox" id="comp8" onchange="toggleCheck(this)"><label for="comp8">JWT signing key rotation on schedule with audit trail</label></div>
+          <div class="checklist-item"><input type="checkbox" id="comp9" onchange="toggleCheck(this)"><label for="comp9">Rate limiting thresholds tested under load quarterly</label></div>
+          <div class="checklist-item"><input type="checkbox" id="comp10" onchange="toggleCheck(this)"><label for="comp10">Model accuracy drift monitoring with documented thresholds</label></div>
+          <div class="checklist-item"><input type="checkbox" id="comp11" onchange="toggleCheck(this)"><label for="comp11">Quarterly access control reviews and recertification</label></div>
+          <div class="checklist-item"><input type="checkbox" id="comp12" onchange="toggleCheck(this)"><label for="comp12">Annual penetration testing including prompt injection attacks</label></div>
+        </div>
+      </div>
+    </div>
   </div>
-  <div class="card">
-    <div class="card-title">Quick Start Guide</div>
-    <pre><code># Install Ollama
-curl https://ollama.ai/install.sh | sh
 
-# Download a model
-ollama pull mistral:7b
+  <!-- COST ANALYSIS SECTION (NEW) -->
+  <div id="cost" class="section">
+    <div class="alert-box alert-info">
+      <strong>COST TRANSPARENCY:</strong> Many teams underestimate total cost of ownership. Factor in electricity, cooling, maintenance labor, and opportunity cost of engineer time.
+    </div>
 
-# Run inference
-ollama run mistral:7b "What is a local LLM?"</code></pre>
+    <div class="grid grid-2">
+      <div class="card calculator">
+        <h2>TCO Calculator</h2>
+        <div class="calc-row">
+          <label>Hardware Cost:</label>
+          <input type="number" id="costHardware" value="2500" onchange="calculateCost()">
+        </div>
+        <div class="calc-row">
+          <label>Lifespan (years):</label>
+          <input type="number" id="costLifespan" value="3" onchange="calculateCost()">
+        </div>
+        <div class="calc-row">
+          <label>Monthly Tokens (millions):</label>
+          <input type="number" id="costTokens" value="50" onchange="calculateCost()">
+        </div>
+        <div class="calc-row">
+          <label>Electricity Rate ($/kWh):</label>
+          <input type="number" id="costElectricity" value="0.13" step="0.01" onchange="calculateCost()">
+        </div>
+        <div class="calc-row">
+          <label>GPU Power Draw (W):</label>
+          <input type="number" id="costPower" value="450" onchange="calculateCost()">
+        </div>
+        <div class="calc-row">
+          <label>Cloud API Cost ($/1M tokens):</label>
+          <input type="number" id="costCloud" value="3.00" step="0.01" onchange="calculateCost()">
+        </div>
+        <div class="calc-row">
+          <label>Monthly Maintenance (hours):</label>
+          <input type="number" id="costMaintenance" value="4" onchange="calculateCost()">
+        </div>
+        <div class="calc-row">
+          <label>Engineer Rate ($/hour):</label>
+          <input type="number" id="costRate" value="100" onchange="calculateCost()">
+        </div>
+
+        <div class="result-box">
+          <h4>Cost Analysis</h4>
+          <div class="result-item"><span>Monthly Depreciation:</span><strong id="resDepreciation">--</strong></div>
+          <div class="result-item"><span>Monthly Electricity:</span><strong id="resElectricity">--</strong></div>
+          <div class="result-item"><span>Monthly Cooling (~30%):</span><strong id="resCooling">--</strong></div>
+          <div class="result-item"><span>Monthly Maintenance Labor:</span><strong id="resLabor">--</strong></div>
+          <div class="result-item"><span><strong>Total Monthly Local Cost:</strong></span><strong id="resTotalLocal">--</strong></div>
+          <div class="result-item"><span>Monthly Cloud Cost:</span><strong id="resTotalCloud">--</strong></div>
+          <div class="result-item"><span><strong>Monthly Savings:</strong></span><strong id="resSavings">--</strong></div>
+          <div class="result-item"><span>ROI Break-even:</span><strong id="resRoi">--</strong></div>
+          <div class="result-item"><span>3-Year Savings:</span><strong id="res3Year">--</strong></div>
+        </div>
+      </div>
+
+      <div class="card">
+        <h2>Cost Comparison Scenarios</h2>
+        <table>
+          <tr><th>Scenario</th><th>Hardware</th><th>Monthly Local</th><th>Monthly Cloud</th><th>ROI</th></tr>
+          <tr><td>Small Team (5M tokens/mo)</td><td>RTX 4070 ($800)</td><td>$45</td><td>$15</td><td>Never (stay cloud)</td></tr>
+          <tr><td>Medium Team (50M tokens/mo)</td><td>RTX 4090 ($2,500)</td><td>$130</td><td>$150</td><td>14 months</td></tr>
+          <tr><td>Large Team (200M tokens/mo)</td><td>Dual 4090 ($5,000)</td><td>$210</td><td>$600</td><td>10 months</td></tr>
+          <tr><td>Enterprise (1B tokens/mo)</td><td>4x A100 ($40,000)</td><td>$1,200</td><td>$3,000</td><td>22 months</td></tr>
+        </table>
+        <div class="alert-box alert-warning" style="margin-top:16px">
+          <strong>Hidden Costs Often Missed:</strong>
+          <ul style="margin-top:8px;padding-left:20px">
+            <li>Network upgrades (10GbE for multi-GPU)</li>
+            <li>UPS/power conditioning</li>
+            <li>Cooling infrastructure (AC upgrades)</li>
+            <li>Insurance for hardware</li>
+            <li>Training time for ops team</li>
+            <li>Opportunity cost of engineer time on infrastructure vs product</li>
+          </ul>
+        </div>
+      </div>
+    </div>
   </div>
-</div>
 
-</div>
+  <!-- DECISION FLOW SECTION -->
+  <div id="decision" class="section">
+    <div class="card">
+      <h2>Interactive Decision Flowchart</h2>
+      <p style="color:var(--text-muted);margin-bottom:20px">Answer the questions below to get your personalized recommendation.</p>
+      <div id="decisionFlow">
+        <div class="flow-step" data-step="1">
+          <strong>What is your primary concern?</strong><br>
+          <button class="nav-tab" onclick="decisionStep(1, 'privacy')">Data Privacy (must stay on-premise)</button>
+          <button class="nav-tab" onclick="decisionStep(1, 'cost')">Cost (high volume, minimize spend)</button>
+          <button class="nav-tab" onclick="decisionStep(1, 'quality')">Maximum Quality (best possible output)</button>
+          <button class="nav-tab" onclick="decisionStep(1, 'speed')">Speed / Low Latency</button>
+        </div>
+      </div>
+      <div id="decisionResult" style="display:none">
+        <div class="recommendation">
+          <h3>Your Recommendation</h3>
+          <div id="decisionResultContent"></div>
+        </div>
+      </div>
+    </div>
 
+    <div class="card">
+      <h2>Priority Checklist</h2>
+      <div class="priority-list">
+        <div class="priority-item">
+          <h3>Maximize Model Size</h3>
+          <span class="impact badge-green">HIGHEST IMPACT</span>
+          <p style="color:var(--text-muted);font-size:0.9rem;margin-top:8px">A 70B Q4 model beats a 7B Q8 model. Prioritize parameter count over quantization precision. Use layer offloading to RAM if VRAM is insufficient.</p>
+          <div class="progress-bar"><div class="progress-fill" style="width:95%"></div></div>
+        </div>
+        <div class="priority-item">
+          <h3>Implement RAG</h3>
+          <span class="impact badge-green">VERY HIGH IMPACT</span>
+          <p style="color:var(--text-muted);font-size:0.9rem;margin-top:8px">Inject relevant context from your documents. Use BGE-M3 for embeddings, ChromaDB for storage, and always add a reranker for top-5 chunk selection.</p>
+          <div class="progress-bar"><div class="progress-fill" style="width:85%"></div></div>
+        </div>
+        <div class="priority-item">
+          <h3>Domain Fine-Tuning</h3>
+          <span class="impact badge-blue">HIGH IMPACT</span>
+          <p style="color:var(--text-muted);font-size:0.9rem;margin-top:8px">Use QLoRA (16-24GB VRAM) with 1,000+ domain examples. A fine-tuned 7B often beats a base 70B on narrow tasks.</p>
+          <div class="progress-bar"><div class="progress-fill" style="width:75%"></div></div>
+        </div>
+        <div class="priority-item">
+          <h3>Security Hardening</h3>
+          <span class="impact badge-security">CRITICAL FOR PRODUCTION</span>
+          <p style="color:var(--text-muted);font-size:0.9rem;margin-top:8px">Verify model checksums, implement JWT auth, harden containers, add prompt injection defenses. Without this, you are one breach away from disaster.</p>
+          <div class="progress-bar"><div class="progress-fill" style="width:100%"></div></div>
+        </div>
+        <div class="priority-item">
+          <h3>Monitoring & Alerting</h3>
+          <span class="impact badge-monitor">CRITICAL FOR PRODUCTION</span>
+          <p style="color:var(--text-muted);font-size:0.9rem;margin-top:8px">Track TTFT, TPS, queue depth, VRAM usage. Alert on OOM, overheating, error spikes. You cannot optimize what you cannot measure.</p>
+          <div class="progress-bar"><div class="progress-fill" style="width:100%"></div></div>
+        </div>
+        <div class="priority-item">
+          <h3>Inference Optimization</h3>
+          <span class="impact badge-yellow">MEDIUM IMPACT</span>
+          <p style="color:var(--text-muted);font-size:0.9rem;margin-top:8px">Enable FlashAttention-3, use speculative decoding with a 1B draft model, and quantize KV cache. These give 2-3x speedup with zero quality loss.</p>
+          <div class="progress-bar"><div class="progress-fill" style="width:60%"></div></div>
+        </div>
+        <div class="priority-item">
+          <h3>Use MoE Models</h3>
+          <span class="impact badge-yellow">MEDIUM IMPACT</span>
+          <p style="color:var(--text-muted);font-size:0.9rem;margin-top:8px">Mixtral 8x7B and Qwen 3 Coder use sparse activation. Load only active experts in VRAM for 70B+ quality at ~13B compute cost.</p>
+          <div class="progress-bar"><div class="progress-fill" style="width:55%"></div></div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- OPTIMIZATION SECTION -->
+  <div id="optimize" class="section">
+    <div class="grid grid-2">
+      <div class="card">
+        <h2>Inference Optimization Techniques</h2>
+        <table>
+          <tr><th>Technique</th><th>Speedup</th><th>Quality Impact</th><th>Setup</th></tr>
+          <tr><td><strong>FlashAttention-3</strong></td><td>2-3x</td><td><span class="badge badge-green">None</span></td><td>Auto in vLLM/llama.cpp</td></tr>
+          <tr><td><strong>Speculative Decoding</strong></td><td>2-3x</td><td><span class="badge badge-green">None</span></td><td>--draft-model flag</td></tr>
+          <tr><td><strong>KV Cache Quant (Q4)</strong></td><td>Memory -50%</td><td><span class="badge badge-yellow">Minimal</span></td><td>--cache-type-k q4_0</td></tr>
+          <tr><td><strong>Continuous Batching</strong></td><td>Throughput +5x</td><td><span class="badge badge-green">None</span></td><td>Use vLLM/TGI</td></tr>
+          <tr><td><strong>Tensor Parallelism</strong></td><td>Scales linearly</td><td><span class="badge badge-green">None</span></td><td>Multi-GPU setup</td></tr>
+          <tr><td><strong>Prompt Lookup Decoding</strong></td><td>1.5-2x</td><td><span class="badge badge-green">None</span></td><td>--lookup-ngram-min</td></tr>
+        </table>
+      </div>
+
+      <div class="card">
+        <h2>Quantization Strategy</h2>
+        <h3>Mixed Quantization (Best Quality per GB)</h3>
+        <table>
+          <tr><th>Layer Type</th><th>Recommended</th><th>Why</th></tr>
+          <tr><td>Attention (Q,K,V,O)</td><td><strong>Q6_K or Q8_0</strong></td><td>Critical for reasoning</td></tr>
+          <tr><td>Feed-Forward</td><td><strong>Q4_K_M</strong></td><td>Less sensitive</td></tr>
+          <tr><td>Embeddings</td><td><strong>Q8_0 or FP16</strong></td><td>Affects all tokens</td></tr>
+          <tr><td>Output Head</td><td><strong>Q8_0 or FP16</strong></td><td>Final prediction quality</td></tr>
+        </table>
+        <p style="color:var(--text-muted);font-size:0.9rem;margin-top:12px">
+          <span class="badge badge-blue">Pro Tip</span> Use llama.cpp with --tensor-split and --override-tensor to apply different quants per layer type. This preserves 90%+ of FP16 quality at 60% of the size.
+        </p>
+      </div>
+    </div>
+
+    <div class="card">
+      <h2>Fine-Tuning Methods Comparison</h2>
+      <div class="grid grid-3">
+        <div class="model-card">
+          <h3>QLoRA</h3>
+          <div class="meta">16-24GB VRAM | Best for most users</div>
+          <p style="color:var(--text-muted);font-size:0.9rem;margin-top:8px">4-bit base model + small adapter matrices (LoRA). Train only 1-2% of parameters. Merge adapters after training. Use Unsloth for 2x speed.</p>
+          <div style="margin-top:10px"><span class="badge badge-green">Recommended</span></div>
+        </div>
+        <div class="model-card">
+          <h3>LoRA</h3>
+          <div class="meta">24-48GB VRAM | Higher quality</div>
+          <p style="color:var(--text-muted);font-size:0.9rem;margin-top:8px">8-bit base model + adapters. Better precision than QLoRA. Good for larger datasets (>10K examples) where QLoRA may underfit.</p>
+        </div>
+        <div class="model-card">
+          <h3>Full Fine-Tune</h3>
+          <div class="meta">80GB+ VRAM | Maximum quality</div>
+          <p style="color:var(--text-muted);font-size:0.9rem;margin-top:8px">Update all model parameters. Requires multi-GPU or A100/H100. Only worth it for enterprise with massive proprietary datasets.</p>
+        </div>
+      </div>
+    </div>
+
+    <div class="card">
+      <h2>Hybrid Local + Cloud Architecture</h2>
+      <div class="grid grid-2">
+        <div>
+          <h3>When to Use Hybrid</h3>
+          <ul style="list-style:none;color:var(--text-muted)">
+            <li style="padding:6px 0">Sensitive data -> Local model</li>
+            <li style="padding:6px 0">Complex reasoning -> Cloud fallback</li>
+            <li style="padding:6px 0">Cost optimization -> Local for 90% of queries</li>
+            <li style="padding:6px 0">Redundancy -> Local backup when cloud is down</li>
+          </ul>
+        </div>
+        <div>
+          <h3>Routing Logic</h3>
+          <div class="code-block">
+<span class="comment"># Simple quality gate router</span>
+<span class="cmd">if</span> contains_pii(query) <span class="cmd">or</span> sensitivity == "high":
+    route_to_local()
+<span class="cmd">elif</span> task_complexity_score(query) > 0.8:
+    route_to_cloud()
+<span class="cmd">else</span>:
+    route_to_local()  <span class="comment"># default</span>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- QUICK START SECTION -->
+  <div id="quickstart" class="section">
+    <div class="card" style="border-color:var(--success)">
+      <h2>5-Minute Quick Start</h2>
+      <div class="grid grid-2">
+        <div>
+          <h3>Step 1: Install Ollama</h3>
+          <div class="code-block">
+<span class="comment"># macOS / Linux</span>
+curl -fsSL https://ollama.com/install.sh | sh
+
+<span class="comment"># Windows: Download from ollama.com</span>
+          </div>
+          <h3>Step 2: Run Your First Model</h3>
+          <div class="code-block">
+<span class="comment"># General purpose (recommended)</span>
+ollama run qwen3:8b
+
+<span class="comment"># Low resource hardware</span>
+ollama run phi4-mini
+
+<span class="comment"># Coding focused</span>
+ollama run qwen3:7b
+          </div>
+          <h3>Step 3: Test the API</h3>
+          <div class="code-block">
+curl http://localhost:11434/api/generate -d '{
+  "model": "qwen3:8b",
+  "prompt": "Explain quantum computing"
+}'
+          </div>
+        </div>
+        <div>
+          <h3>Step 4: Set Up RAG (Python)</h3>
+          <div class="code-block">
+<span class="cmd">pip install</span> chromadb sentence-transformers
+
+<span class="comment"># embed_documents.py</span>
+<span class="cmd">from</span> chromadb <span class="cmd">import</span> Client
+<span class="cmd">from</span> sentence_transformers <span class="cmd">import</span> SentenceTransformer
+
+client = Client()
+collection = client.create_collection("docs")
+model = SentenceTransformer("BAAI/bge-m3")
+
+docs = ["Your document text here..."]
+embeddings = model.encode(docs)
+collection.add(embeddings=embeddings, documents=docs, ids=["doc1"])
+          </div>
+          <h3>Step 5: Query with RAG</h3>
+          <div class="code-block">
+query = "Your question?"
+q_embed = model.encode([query])
+results = collection.query(query_embeddings=q_embed, n_results=3)
+<span class="comment"># Inject results into prompt</span>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <div class="grid grid-3">
+      <div class="card">
+        <h2>Recommended Tools</h2>
+        <table>
+          <tr><th>Tool</th><th>Best For</th></tr>
+          <tr><td><strong>Ollama</strong></td><td>Quick CLI setup</td></tr>
+          <tr><td><strong>LM Studio</strong></td><td>GUI users</td></tr>
+          <tr><td><strong>text-generation-webui</strong></td><td>Power users</td></tr>
+          <tr><td><strong>GPT4All</strong></td><td>Beginners</td></tr>
+          <tr><td><strong>LocalAI</strong></td><td>API-compatible server</td></tr>
+          <tr><td><strong>Jan</strong></td><td>ChatGPT-style UI</td></tr>
+        </table>
+      </div>
+      <div class="card">
+        <h2>Model Sources</h2>
+        <table>
+          <tr><th>Source</th><th>What You'll Find</th></tr>
+          <tr><td><strong>Hugging Face</strong></td><td>Largest model hub</td></tr>
+          <tr><td><strong>Ollama Library</strong></td><td>Pre-quantized GGUF</td></tr>
+          <tr><td><strong>LM Studio</strong></td><td>Curated, tested models</td></tr>
+          <tr><td><strong>TheBloke (HF)</strong></td><td>GGUF quantizations</td></tr>
+          <tr><td><strong>Unsloth</strong></td><td>Fine-tuned variants</td></tr>
+        </table>
+      </div>
+      <div class="card">
+        <h2>Learning Resources</h2>
+        <table>
+          <tr><th>Resource</th><th>Topic</th></tr>
+          <tr><td><strong>llama.cpp docs</strong></td><td>Low-level optimization</td></tr>
+          <tr><td><strong>vLLM docs</strong></td><td>Production serving</td></tr>
+          <tr><td><strong>Unsloth tutorials</strong></td><td>Fine-tuning</td></tr>
+          <tr><td><strong>LangChain docs</strong></td><td>RAG pipelines</td></tr>
+          <tr><td><strong>Hugging Face courses</strong></td><td>ML fundamentals</td></tr>
+        </table>
+      </div>
+    </div>
+  </div>
 </div>
 
 <script>
-function show(page) {
-  document.querySelectorAll('.page').forEach(p => p.classList.remove('active'));
-  document.getElementById('page-' + page).classList.add('active');
-  
-  document.querySelectorAll('.nav-item').forEach(item => item.classList.remove('active'));
-  event.target.closest('.nav-item').classList.add('active');
+// Tab navigation
+function showSection(id) {
+  document.querySelectorAll('.section').forEach(s => s.classList.remove('active'));
+  document.querySelectorAll('.nav-tab').forEach(t => t.classList.remove('active'));
+  document.getElementById(id).classList.add('active');
+  event.target.classList.add('active');
 }
 
-// Count-up animation for stats
-document.addEventListener('DOMContentLoaded', () => {
-  const countups = document.querySelectorAll('.count-up');
-  countups.forEach(el => {
-    const target = parseInt(el.dataset.target);
-    let current = 0;
-    const increment = Math.ceil(target / 20);
-    const interval = setInterval(() => {
-      current += increment;
-      if (current >= target) {
-        current = target;
-        clearInterval(interval);
-      }
-      el.textContent = current;
-    }, 50);
+// Checklist toggle
+function toggleCheck(cb) {
+  cb.parentElement.classList.toggle('checked', cb.checked);
+}
+
+// Model data
+const models = [
+  { name: "Qwen 3", params: "0.6B-72B", context: "128K", license: "apache", useCase: "general", bestFor: "General purpose, multilingual", vram: "0.5-42GB", quality: "5/5", sizes: [0.6, 1.8, 4, 7, 14, 32, 72] },
+  { name: "Phi-4-mini", params: "3.8B", context: "128K", license: "mit", useCase: "lowresource", bestFor: "Low resource, fast inference", vram: "3.5GB", quality: "3/5", sizes: [3.8] },
+  { name: "Llama 3.3 / 4", params: "8B-405B", context: "128K", license: "meta", useCase: "general", bestFor: "Ecosystem, fine-tunes", vram: "6-240GB", quality: "5/5", sizes: [8, 70, 405] },
+  { name: "Mistral Small 3", params: "7B", context: "32K", license: "apache", useCase: "speed", bestFor: "Speed, instruction following", vram: "5.5GB", quality: "4/5", sizes: [7] },
+  { name: "Mixtral 8x7B", params: "46.7B (13B active)", context: "32K", license: "apache", useCase: "general", bestFor: "MoE efficiency", vram: "~28GB", quality: "5/5", sizes: [46.7] },
+  { name: "GPT-OSS", params: "20B / 120B", context: "128K", license: "apache", useCase: "reasoning", bestFor: "Reasoning, agentic tasks", vram: "16-80GB", quality: "5/5", sizes: [20, 120] },
+  { name: "Devstral", params: "7B-35B", context: "128K", license: "apache", useCase: "coding", bestFor: "Code generation", vram: "6-22GB", quality: "5/5", sizes: [7, 35] },
+  { name: "Qwen 3 Coder", params: "480B (35B active)", context: "128K", license: "apache", useCase: "coding", bestFor: "Large-scale coding", vram: "~80GB", quality: "5/5", sizes: [480] },
+  { name: "Gemma 3", params: "1B-27B", context: "128K", license: "apache", useCase: "multimodal", bestFor: "Multimodal, multilingual", vram: "1-18GB", quality: "4/5", sizes: [1, 4, 12, 27] },
+  { name: "DeepSeek-V3", params: "671B (37B active)", context: "128K", license: "apache", useCase: "reasoning", bestFor: "Reasoning, math", vram: "~80GB", quality: "5/5", sizes: [671] },
+];
+
+function populateModels() {
+  const grid = document.getElementById('modelGrid');
+  const tbody = document.getElementById('modelTableBody');
+  grid.innerHTML = models.map(m => `
+    <div class="model-card" data-usecase="${m.useCase}" data-size="${m.sizes[0] <= 10 ? 'small' : m.sizes[0] <= 40 ? 'medium' : 'large'}" data-license="${m.license}" data-name="${m.name.toLowerCase()}">
+      <h3>${m.name}</h3>
+      <div class="meta">${m.bestFor}</div>
+      <div class="specs">
+        <div><span>Params:</span> <strong>${m.params}</strong></div>
+        <div><span>Context:</span> <strong>${m.context}</strong></div>
+        <div><span>License:</span> <strong>${m.license === 'apache' ? 'Apache 2.0' : m.license === 'mit' ? 'MIT' : 'Meta License'}</strong></div>
+        <div><span>VRAM:</span> <strong>${m.vram}</strong></div>
+      </div>
+      <div style="margin-top:12px">
+        <span class="badge ${m.license === 'apache' || m.license === 'mit' ? 'badge-green' : 'badge-yellow'}">${m.license === 'apache' ? 'Apache 2.0' : m.license === 'mit' ? 'MIT' : 'Meta License'}</span>
+        <span class="badge badge-blue">${m.quality}</span>
+      </div>
+    </div>
+  `).join('');
+  tbody.innerHTML = models.map(m => `
+    <tr data-usecase="${m.useCase}" data-size="${m.sizes[0] <= 10 ? 'small' : m.sizes[0] <= 40 ? 'medium' : 'large'}" data-license="${m.license}" data-name="${m.name.toLowerCase()}">
+      <td><strong>${m.name}</strong></td>
+      <td>${m.params}</td>
+      <td>${m.context}</td>
+      <td><span class="badge ${m.license === 'apache' || m.license === 'mit' ? 'badge-green' : 'badge-yellow'}">${m.license === 'apache' ? 'Apache 2.0' : m.license === 'mit' ? 'MIT' : 'Meta'}</span></td>
+      <td>${m.bestFor}</td>
+      <td>${m.vram}</td>
+      <td>${m.quality}</td>
+    </tr>
+  `).join('');
+}
+
+function filterModels() {
+  const useCase = document.getElementById('useCaseFilter').value;
+  const size = document.getElementById('sizeFilter').value;
+  const license = document.getElementById('licenseFilter').value;
+  const search = document.getElementById('searchModel').value.toLowerCase();
+  document.querySelectorAll('.model-card, #modelTableBody tr').forEach(el => {
+    const match = (useCase === 'all' || el.dataset.usecase === useCase) &&
+                  (size === 'all' || el.dataset.size === size) &&
+                  (license === 'all' || el.dataset.license === license) &&
+                  (!search || el.dataset.name.includes(search));
+    el.style.display = match ? '' : 'none';
   });
-});
+}
+
+function calculateHardware() {
+  const modelSize = parseInt(document.getElementById('calcModelSize').value);
+  const quant = parseInt(document.getElementById('calcQuant').value);
+  const context = parseInt(document.getElementById('calcContext').value);
+  const vram = parseInt(document.getElementById('calcVram').value);
+  const modelMem = (modelSize * quant) / 8;
+  const kvMem = (context * 2 * 128 * 8 * 2) / (1024 * 1024 * 1024);
+  const totalMem = modelMem + kvMem;
+  const offload = Math.max(0, totalMem - vram);
+  let speed, feasible;
+  if (vram === 0) {
+    speed = "~5-10 t/s (CPU)";
+    feasible = offload > 0 ? "⚠️ Slow but possible" : "✅ Feasible";
+  } else if (totalMem <= vram * 0.9) {
+    speed = "~30-50 t/s (GPU fully loaded)";
+    feasible = "✅ Fully feasible";
+  } else if (offload < vram * 0.5) {
+    speed = "~10-20 t/s (partial offload)";
+    feasible = "✅ Feasible with offload";
+  } else if (offload < vram * 2) {
+    speed = "~5-10 t/s (heavy offload)";
+    feasible = "⚠️ Slow, consider smaller model";
+  } else {
+    speed = "~1-3 t/s (very slow)";
+    feasible = "❌ Not recommended";
+  }
+  document.getElementById('resModelMem').textContent = modelMem.toFixed(1) + " GB";
+  document.getElementById('resKvMem').textContent = kvMem.toFixed(1) + " GB";
+  document.getElementById('resTotalMem').textContent = totalMem.toFixed(1) + " GB";
+  document.getElementById('resAvailVram').textContent = vram === 0 ? "CPU only" : vram + " GB";
+  document.getElementById('resOffload').textContent = offload > 0 ? offload.toFixed(1) + " GB to RAM" : "None";
+  document.getElementById('resSpeed').textContent = speed;
+  document.getElementById('resFeasible').innerHTML = feasible;
+}
+
+function buildRag() {
+  const docType = document.getElementById('ragDocType').value;
+  const volume = document.getElementById('ragVolume').value;
+  const lang = document.getElementById('ragLang').value;
+  const latency = document.getElementById('ragLatency').value;
+  const privacy = document.getElementById('ragPrivacy').value;
+  let embedModel, vectorDb, chunkSize, reranker, llm, notes = [];
+  if (lang === 'multilingual') embedModel = "BGE-M3 (0.5B, 100+ languages)";
+  else if (lang === 'asian') embedModel = "BGE-M3 or multilingual-e5-large";
+  else if (docType === 'code') embedModel = "jina-embeddings-v3 or BGE-M3";
+  else embedModel = lang === 'en' ? "E5-mistral-7b (highest accuracy) or BGE-M3" : "BGE-M3";
+  if (volume === 'massive') vectorDb = "Milvus or Qdrant (clustered)";
+  else if (volume === 'large') vectorDb = "Qdrant or Milvus";
+  else vectorDb = "ChromaDB (simplest) or FAISS (fastest)";
+  if (docType === 'code') chunkSize = "512 tokens, function-level splitting";
+  else if (docType === 'legal' || docType === 'medical') chunkSize = "1024 tokens, paragraph boundaries";
+  else chunkSize = "512 tokens, 128 overlap";
+  reranker = "BGE-reranker-v2-m3 (always recommended)";
+  if (latency === 'fast') llm = "Mistral Small 3 7B or Phi-4-mini (3.8B)";
+  else if (docType === 'coding') llm = "Devstral 7B or Qwen 3 Coder";
+  else if (docType === 'reasoning' || docType === 'legal') llm = "Qwen 3 72B or Llama 3.3 70B";
+  else llm = "Qwen 3 8B or Llama 3.3 8B";
+  if (privacy === 'medical') notes.push("Ensure HIPAA compliance: encrypt embeddings at rest, audit logs");
+  if (privacy === 'high') notes.push("Air-gapped setup: download all models beforehand, no external APIs");
+  if (docType === 'legal') notes.push("Consider fine-tuning the embedding model on legal corpus for better retrieval");
+  if (volume === 'massive') notes.push("Use hierarchical indexing: summary index + detailed chunk index");
+  document.getElementById('ragRecommendation').innerHTML = `
+    <h3>Recommended Stack</h3>
+    <ul>
+      <li><strong>Embedding Model:</strong> ${embedModel}</li>
+      <li><strong>Vector Database:</strong> ${vectorDb}</li>
+      <li><strong>Chunking:</strong> ${chunkSize}</li>
+      <li><strong>Reranker:</strong> ${reranker}</li>
+      <li><strong>LLM:</strong> ${llm}</li>
+      ${notes.length ? `<li><strong>Notes:</strong> ${notes.join('; ')}</li>` : ''}
+    </ul>
+    <div style="margin-top:16px;padding:12px;background:var(--bg);border-radius:8px">
+      <strong style="color:var(--accent)">Pro Tip:</strong>
+      <span style="color:var(--text-muted);font-size:0.9rem"> Always evaluate retrieval with MRR (Mean Reciprocal Rank) before deploying. A good RAG system should have MRR > 0.8 on your test queries.</span>
+    </div>
+  `;
+}
+
+let decisionPath = [];
+function decisionStep(step, choice) {
+  decisionPath.push({step, choice});
+  const flow = document.getElementById('decisionFlow');
+  const result = document.getElementById('decisionResult');
+  const resultContent = document.getElementById('decisionResultContent');
+  if (step === 1) {
+    if (choice === 'privacy') {
+      flow.innerHTML += `<div class="flow-step" data-step="2"><strong>What hardware do you have?</strong><br><button class="nav-tab" onclick="decisionStep(2, 'low')">8-16GB RAM, no GPU</button><button class="nav-tab" onclick="decisionStep(2, 'mid')">16-32GB RAM, 8-12GB VRAM</button><button class="nav-tab" onclick="decisionStep(2, 'high')">32GB+ RAM, 24GB+ VRAM</button></div>`;
+    } else if (choice === 'cost') {
+      flow.innerHTML += `<div class="flow-step" data-step="2"><strong>What is your monthly API spend?</strong><br><button class="nav-tab" onclick="decisionStep(2, 'small')">&lt; $100/month</button><button class="nav-tab" onclick="decisionStep(2, 'medium')">$100-$1,000/month</button><button class="nav-tab" onclick="decisionStep(2, 'large')">$1,000+/month</button></div>`;
+    } else if (choice === 'quality') {
+      flow.innerHTML += `<div class="flow-step" data-step="2"><strong>What tasks need top quality?</strong><br><button class="nav-tab" onclick="decisionStep(2, 'coding')">Coding / Development</button><button class="nav-tab" onclick="decisionStep(2, 'reasoning')">Complex Reasoning</button><button class="nav-tab" onclick="decisionStep(2, 'writing')">Creative Writing</button></div>`;
+    } else if (choice === 'speed') {
+      flow.innerHTML += `<div class="flow-step" data-step="2"><strong>What latency target?</strong><br><button class="nav-tab" onclick="decisionStep(2, 'realtime')">&lt; 500ms (chat)</button><button class="nav-tab" onclick="decisionStep(2, 'fast')">&lt; 2s (standard)</button><button class="nav-tab" onclick="decisionStep(2, 'batch')">5s+ (batch OK)</button></div>`;
+    }
+  } else if (step === 2) {
+    let rec = "";
+    const primary = decisionPath[0].choice;
+    const secondary = choice;
+    if (primary === 'privacy') {
+      if (secondary === 'low') rec = `<p><strong>Recommendation: Phi-4-mini (3.8B) + CPU inference</strong></p><ul><li>Model: <strong>Phi-4-mini</strong> -- MIT license, 128K context</li><li>Setup: Ollama with CPU offloading</li><li>RAM needed: ~4GB</li><li>Speed: 15-20 tokens/sec</li><li>Add RAG with <strong>BGE-M3</strong> + <strong>ChromaDB</strong> for knowledge</li></ul><p style="margin-top:12px;color:var(--text-muted)">For better quality, consider upgrading to 16GB RAM and running Qwen 3 7B.</p>`;
+      else if (secondary === 'mid') rec = `<p><strong>Recommendation: Qwen 3 8B or Llama 3.3 8B</strong></p><ul><li>Model: <strong>Qwen 3 8B</strong> -- Apache 2.0, excellent multilingual</li><li>Alternative: <strong>Llama 3.3 8B</strong> -- largest ecosystem</li><li>VRAM: ~6GB at Q4_K_M</li><li>Speed: 30-50 tokens/sec</li><li>RAG: <strong>BGE-M3</strong> + <strong>ChromaDB</strong> with reranker</li></ul>`;
+      else rec = `<p><strong>Recommendation: Qwen 3 72B or Llama 3.3 70B</strong></p><ul><li>Model: <strong>Qwen 3 72B Q4_K_M</strong> -- best all-around quality</li><li>Alternative: <strong>GPT-OSS 120B</strong> -- if you have 80GB VRAM</li><li>VRAM: ~42GB (offload to RAM if needed)</li><li>Speed: 10-25 tokens/sec</li><li>Add speculative decoding with 1B draft model for 2x speedup</li></ul>`;
+    } else if (primary === 'cost') {
+      if (secondary === 'small') rec = `<p><strong>Recommendation: Stay on Cloud API for now</strong></p><ul><li>Local hardware investment ($500-$1,500) doesn't pay off below $100/month</li><li>If you want to experiment: <strong>Phi-4-mini</strong> on existing hardware</li><li>Consider <strong>hybrid approach</strong>: local for sensitive queries, cloud for rest</li></ul>`;
+      else if (secondary === 'medium') rec = `<p><strong>Recommendation: RTX 4070 Ti Super (16GB) + Qwen 3 8B</strong></p><ul><li>Hardware cost: ~$1,200 (pays for itself in 6-12 months)</li><li>Model: <strong>Qwen 3 8B</strong> at Q8 for best quality</li><li>Can also run <strong>70B at Q4</strong> with some offload</li><li>Add RAG to reduce need for largest model</li></ul>`;
+      else rec = `<p><strong>Recommendation: RTX 4090 (24GB) or Mac Studio + 70B models</strong></p><ul><li>Hardware: RTX 4090 ($1,600) or Mac Studio M2 Ultra ($4,000)</li><li>Model: <strong>Qwen 3 72B Q4_K_M</strong> fully in VRAM</li><li>ROI: Pays for itself in 2-4 months vs API costs</li><li>Consider <strong>multi-model pipeline</strong> for efficiency</li></ul>`;
+    } else if (primary === 'quality') {
+      if (secondary === 'coding') rec = `<p><strong>Recommendation: Devstral or Qwen 3 Coder</strong></p><ul><li>Best: <strong>Qwen 3 Coder 35B active</strong> (480B total MoE)</li><li>Budget: <strong>Devstral 7B</strong> -- fine-tuned for coding agents</li><li>VRAM: 6GB (7B) to 80GB (480B MoE)</li><li>Add code-specific RAG with function-level chunking</li></ul>`;
+      else if (secondary === 'reasoning') rec = `<p><strong>Recommendation: GPT-OSS 120B or Qwen 3 72B</strong></p><ul><li>Best: <strong>GPT-OSS 120B</strong> -- designed for reasoning</li><li>Requires: 80GB+ VRAM or multi-GPU</li><li>Alternative: <strong>Qwen 3 72B</strong> with agentic architecture</li><li>Use ReAct pattern with tool integration</li></ul>`;
+      else rec = `<p><strong>Recommendation: Llama 3.3 70B Instruct</strong></p><ul><li>Best instruction-following for creative tasks</li><li>Fine-tune with 1,000+ examples of your writing style</li><li>Use QLoRA if VRAM is limited</li></ul>`;
+    } else if (primary === 'speed') {
+      if (secondary === 'realtime') rec = `<p><strong>Recommendation: Mistral Small 3 7B + vLLM</strong></p><ul><li>Fastest 7B model: ~50 tokens/sec on mid-range GPU</li><li>Use <strong>vLLM</strong> with continuous batching</li><li>Enable <strong>FlashAttention-3</strong></li><li>Quantize to Q4_K_M for maximum throughput</li></ul>`;
+      else if (secondary === 'fast') rec = `<p><strong>Recommendation: Qwen 3 8B + Speculative Decoding</strong></p><ul><li>Main model: <strong>Qwen 3 8B</strong></li><li>Draft model: <strong>Qwen 3 1B</strong></li><li>Speedup: 2-3x with zero quality loss</li><li>Total VRAM: ~8GB</li></ul>`;
+      else rec = `<p><strong>Recommendation: Focus on quality, speed is acceptable</strong></p><ul><li>Run <strong>Qwen 3 72B</strong> with full quality</li><li>Use batch processing for non-interactive tasks</li><li>Consider multi-GPU setup for parallel inference</li></ul>`;
+    }
+    resultContent.innerHTML = rec;
+    result.style.display = 'block';
+    result.scrollIntoView({ behavior: 'smooth' });
+  }
+}
+
+function calculateCost() {
+  const hardware = parseFloat(document.getElementById('costHardware').value) || 0;
+  const lifespan = parseFloat(document.getElementById('costLifespan').value) || 3;
+  const tokens = parseFloat(document.getElementById('costTokens').value) || 0;
+  const electricityRate = parseFloat(document.getElementById('costElectricity').value) || 0;
+  const power = parseFloat(document.getElementById('costPower').value) || 0;
+  const cloudCost = parseFloat(document.getElementById('costCloud').value) || 0;
+  const maintenance = parseFloat(document.getElementById('costMaintenance').value) || 0;
+  const rate = parseFloat(document.getElementById('costRate').value) || 0;
+
+  const monthlyDepreciation = hardware / (lifespan * 12);
+  const monthlyElectricity = (power / 1000) * 24 * 30 * electricityRate;
+  const monthlyCooling = monthlyElectricity * 0.3;
+  const monthlyLabor = maintenance * rate;
+  const totalLocal = monthlyDepreciation + monthlyElectricity + monthlyCooling + monthlyLabor;
+  const totalCloud = tokens * cloudCost;
+  const savings = totalCloud - totalLocal;
+  const roi = savings > 0 ? (hardware / savings).toFixed(1) : 'Never';
+  const threeYear = savings * 36;
+
+  document.getElementById('resDepreciation').textContent = '$' + monthlyDepreciation.toFixed(2);
+  document.getElementById('resElectricity').textContent = '$' + monthlyElectricity.toFixed(2);
+  document.getElementById('resCooling').textContent = '$' + monthlyCooling.toFixed(2);
+  document.getElementById('resLabor').textContent = '$' + monthlyLabor.toFixed(2);
+  document.getElementById('resTotalLocal').textContent = '$' + totalLocal.toFixed(2);
+  document.getElementById('resTotalCloud').textContent = '$' + totalCloud.toFixed(2);
+  document.getElementById('resSavings').textContent = '$' + savings.toFixed(2) + (savings > 0 ? '/mo' : ' (cloud cheaper)');
+  document.getElementById('resRoi').textContent = roi === 'Never' ? roi : roi + ' months';
+  document.getElementById('res3Year').textContent = '$' + threeYear.toFixed(0);
+}
+
+// Initialize
+populateModels();
+calculateHardware();
+buildRag();
+calculateCost();
+
+// Simulate live metrics
+setInterval(() => {
+  document.getElementById('metricTtft').textContent = (200 + Math.random() * 300).toFixed(0);
+  document.getElementById('metricTps').textContent = (25 + Math.random() * 20).toFixed(1);
+  document.getElementById('metricVram').textContent = (60 + Math.random() * 25).toFixed(0) + '%';
+  document.getElementById('metricQueue').textContent = Math.floor(Math.random() * 15);
+}, 2000);
 </script>
 </body>
 </html>
