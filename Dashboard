@@ -1,0 +1,2755 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Local LLM Decision Hub — God Mode</title>
+<style>
+:root {
+  --bg: #0f1117; --surface: #1a1d27; --surface2: #22263a;
+  --border: #2e3352; --accent: #6366f1; --accent2: #22d3ee;
+  --green: #22c55e; --yellow: #eab308; --red: #ef4444; --orange: #f97316;
+  --text: #e2e8f0; --muted: #94a3b8; --code-bg: #0d1117;
+}
+* { box-sizing: border-box; margin: 0; padding: 0; }
+body { background: var(--bg); color: var(--text); font-family: 'Inter', system-ui, sans-serif; font-size: 14px; }
+a { color: var(--accent2); text-decoration: none; }
+
+/* Layout */
+.app { display: flex; height: 100vh; overflow: hidden; }
+.sidebar { width: 220px; background: var(--surface); border-right: 1px solid var(--border); padding: 16px 0; overflow-y: auto; flex-shrink: 0; }
+.main { flex: 1; overflow-y: auto; padding: 24px; }
+
+/* Sidebar */
+.logo { padding: 0 16px 20px; font-size: 13px; font-weight: 700; color: var(--accent); letter-spacing: .5px; border-bottom: 1px solid var(--border); margin-bottom: 12px; }
+.logo span { color: var(--accent2); }
+.nav-group { padding: 6px 16px 4px; font-size: 10px; font-weight: 700; text-transform: uppercase; color: var(--muted); letter-spacing: 1px; }
+.nav-item { display: flex; align-items: center; gap: 8px; padding: 8px 16px; cursor: pointer; transition: all .15s; color: var(--muted); font-size: 13px; border-left: 3px solid transparent; }
+.nav-item:hover { background: var(--surface2); color: var(--text); }
+.nav-item.active { background: var(--surface2); color: var(--accent); border-left-color: var(--accent); }
+.nav-item .badge { margin-left: auto; font-size: 10px; background: var(--red); color: #fff; padding: 1px 5px; border-radius: 9px; }
+.nav-item .badge.new { background: var(--green); }
+
+/* Tabs / Pages */
+.page { display: none; }
+.page.active { display: block; }
+
+/* Cards */
+.card { background: var(--surface); border: 1px solid var(--border); border-radius: 12px; padding: 20px; margin-bottom: 16px; }
+.card-title { font-size: 16px; font-weight: 700; margin-bottom: 4px; }
+.card-sub { color: var(--muted); font-size: 13px; margin-bottom: 16px; }
+
+/* Grid */
+.grid-2 { display: grid; grid-template-columns: 1fr 1fr; gap: 16px; }
+.grid-3 { display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 16px; }
+.grid-4 { display: grid; grid-template-columns: 1fr 1fr 1fr 1fr; gap: 16px; }
+
+/* Stats */
+.stat { background: var(--surface2); border-radius: 10px; padding: 16px; text-align: center; }
+.stat-val { font-size: 28px; font-weight: 800; }
+.stat-label { color: var(--muted); font-size: 12px; margin-top: 4px; }
+
+/* Table */
+.tbl { width: 100%; border-collapse: collapse; font-size: 13px; }
+.tbl th { background: var(--surface2); color: var(--muted); font-size: 11px; text-transform: uppercase; letter-spacing: .5px; padding: 10px 12px; text-align: left; border-bottom: 1px solid var(--border); }
+.tbl td { padding: 10px 12px; border-bottom: 1px solid var(--border); vertical-align: middle; }
+.tbl tr:last-child td { border-bottom: none; }
+.tbl tr:hover td { background: var(--surface2); }
+
+/* Badges */
+.badge-pill { display: inline-block; padding: 2px 8px; border-radius: 20px; font-size: 11px; font-weight: 600; }
+.green { background: rgba(34,197,94,.15); color: var(--green); }
+.yellow { background: rgba(234,179,8,.15); color: var(--yellow); }
+.red { background: rgba(239,68,68,.15); color: var(--red); }
+.blue { background: rgba(99,102,241,.15); color: var(--accent); }
+.cyan { background: rgba(34,211,238,.15); color: var(--accent2); }
+.orange { background: rgba(249,115,22,.15); color: var(--orange); }
+
+/* Inputs */
+input, select, textarea { background: var(--surface2); border: 1px solid var(--border); color: var(--text); border-radius: 8px; padding: 8px 12px; font-size: 13px; width: 100%; outline: none; font-family: inherit; }
+input:focus, select:focus, textarea:focus { border-color: var(--accent); }
+label { font-size: 12px; color: var(--muted); margin-bottom: 4px; display: block; }
+.form-group { margin-bottom: 14px; }
+.btn { background: var(--accent); color: #fff; border: none; border-radius: 8px; padding: 9px 18px; font-size: 13px; font-weight: 600; cursor: pointer; transition: opacity .15s; }
+.btn:hover { opacity: .85; }
+.btn-outline { background: transparent; border: 1px solid var(--border); color: var(--text); }
+.btn-green { background: var(--green); }
+.btn-red { background: var(--red); }
+
+/* Code */
+pre { background: var(--code-bg); border: 1px solid var(--border); border-radius: 8px; padding: 16px; font-size: 12px; overflow-x: auto; line-height: 1.6; }
+code { font-family: 'JetBrains Mono', 'Fira Code', monospace; color: var(--accent2); }
+pre code { color: var(--text); }
+
+/* Progress */
+.progress-bar { height: 6px; background: var(--surface2); border-radius: 3px; overflow: hidden; }
+.progress-fill { height: 100%; border-radius: 3px; transition: width .4s; }
+
+/* Alert */
+.alert { padding: 12px 16px; border-radius: 8px; margin-bottom: 12px; font-size: 13px; border-left: 3px solid; }
+.alert-red { background: rgba(239,68,68,.08); border-color: var(--red); }
+.alert-yellow { background: rgba(234,179,8,.08); border-color: var(--yellow); }
+.alert-green { background: rgba(34,197,94,.08); border-color: var(--green); }
+.alert-blue { background: rgba(99,102,241,.08); border-color: var(--accent); }
+
+/* Page header */
+.page-header { margin-bottom: 24px; }
+.page-header h1 { font-size: 22px; font-weight: 800; }
+.page-header p { color: var(--muted); margin-top: 4px; }
+
+/* Flow chart */
+.flow { display: flex; align-items: center; gap: 0; flex-wrap: wrap; margin: 16px 0; }
+.flow-box { background: var(--surface2); border: 1px solid var(--border); border-radius: 8px; padding: 8px 14px; font-size: 12px; text-align: center; }
+.flow-arrow { color: var(--muted); padding: 0 8px; font-size: 18px; }
+
+/* Rating stars */
+.stars { color: var(--yellow); font-size: 14px; }
+
+/* Checklist */
+.checklist { list-style: none; }
+.checklist li { padding: 7px 0; border-bottom: 1px solid var(--border); display: flex; align-items: center; gap: 10px; font-size: 13px; }
+.checklist li:last-child { border-bottom: none; }
+.check-icon { width: 18px; height: 18px; border-radius: 50%; display: flex; align-items: center; justify-content: center; font-size: 11px; flex-shrink: 0; }
+.check-icon.ok { background: rgba(34,197,94,.2); color: var(--green); }
+.check-icon.warn { background: rgba(234,179,8,.2); color: var(--yellow); }
+.check-icon.bad { background: rgba(239,68,68,.2); color: var(--red); }
+
+/* Tooltip */
+[data-tip] { position: relative; cursor: help; border-bottom: 1px dashed var(--muted); }
+
+/* Range slider */
+input[type=range] { padding: 0; background: transparent; border: none; cursor: pointer; }
+input[type=range]::-webkit-slider-runnable-track { height: 6px; background: var(--surface2); border-radius: 3px; }
+input[type=range]::-webkit-slider-thumb { -webkit-appearance: none; width: 16px; height: 16px; border-radius: 50%; background: var(--accent); margin-top: -5px; }
+
+/* Score ring */
+.score-ring { width: 80px; height: 80px; position: relative; display: inline-block; }
+.score-ring svg { transform: rotate(-90deg); }
+.score-ring .score-text { position: absolute; top: 50%; left: 50%; transform: translate(-50%,-50%); font-size: 18px; font-weight: 800; }
+
+/* Highlight */
+.highlight { background: rgba(99,102,241,.1); border-radius: 4px; padding: 1px 4px; color: var(--accent); font-weight: 600; }
+
+@media (max-width: 900px) {
+  .grid-3, .grid-4 { grid-template-columns: 1fr 1fr; }
+}
+@media (max-width: 600px) {
+  .grid-2, .grid-3, .grid-4 { grid-template-columns: 1fr; }
+  .sidebar { width: 60px; }
+  .nav-item span, .logo, .nav-group { display: none; }
+}
+</style>
+
+<!-- GOD MODE: Chart.js + Google Fonts -->
+<script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/4.4.0/chart.umd.min.js"></script>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800;900&display=swap" rel="stylesheet">
+
+<style>
+/* ============================================================
+   GOD MODE OVERRIDES — Premium visual layer
+   ============================================================ */
+
+:root {
+  --bg: #07090f;
+  --surface: rgba(255,255,255,0.035);
+  --surface2: rgba(255,255,255,0.06);
+  --border: rgba(255,255,255,0.07);
+  --accent: #818cf8;
+  --accent2: #22d3ee;
+  --green: #4ade80;
+  --yellow: #fbbf24;
+  --red: #f87171;
+  --orange: #fb923c;
+  --text: #f1f5f9;
+  --muted: #8892a4;
+  --glow: 0 0 20px rgba(129,140,248,0.25);
+  --glow-cyan: 0 0 20px rgba(34,211,238,0.2);
+  --glow-green: 0 0 16px rgba(74,222,128,0.2);
+}
+
+/* Animated mesh background */
+body {
+  font-family: 'Inter', system-ui, sans-serif;
+  background: var(--bg);
+  background-image:
+    radial-gradient(ellipse 90% 60% at 50% -10%, rgba(99,102,241,0.18) 0%, transparent 65%),
+    radial-gradient(ellipse 50% 40% at 90% 85%, rgba(34,211,238,0.1) 0%, transparent 55%),
+    radial-gradient(ellipse 40% 30% at 5% 70%, rgba(129,140,248,0.07) 0%, transparent 50%);
+  background-attachment: fixed;
+}
+
+/* Scrollbar */
+::-webkit-scrollbar { width: 5px; }
+::-webkit-scrollbar-track { background: transparent; }
+::-webkit-scrollbar-thumb { background: rgba(129,140,248,0.3); border-radius: 3px; }
+::-webkit-scrollbar-thumb:hover { background: rgba(129,140,248,0.5); }
+
+/* Sidebar — dark glass */
+.sidebar {
+  background: rgba(7,9,15,0.95);
+  border-right: 1px solid rgba(255,255,255,0.06);
+  backdrop-filter: blur(24px);
+}
+
+.logo {
+  background: linear-gradient(135deg, #818cf8 0%, #22d3ee 100%);
+  -webkit-background-clip: text;
+  -webkit-text-fill-color: transparent;
+  background-clip: text;
+  font-size: 14px;
+  font-weight: 900;
+  letter-spacing: -0.3px;
+  border-bottom: 1px solid rgba(255,255,255,0.06);
+}
+
+.nav-item {
+  border-radius: 0 8px 8px 0;
+  margin-right: 8px;
+  transition: all 0.2s cubic-bezier(0.4,0,0.2,1);
+  font-size: 12.5px;
+  font-weight: 500;
+  border-left: 2px solid transparent;
+}
+.nav-item:hover {
+  background: rgba(129,140,248,0.08);
+  color: #f1f5f9;
+  border-left-color: rgba(129,140,248,0.4);
+}
+.nav-item.active {
+  background: linear-gradient(90deg, rgba(129,140,248,0.15) 0%, rgba(129,140,248,0.04) 100%);
+  color: var(--accent);
+  border-left: 2px solid var(--accent);
+  box-shadow: inset 0 0 20px rgba(129,140,248,0.05);
+}
+.nav-item.active::before {
+  display: none;
+}
+
+/* Cards — glassmorphism */
+.card {
+  background: var(--surface);
+  border: 1px solid var(--border);
+  backdrop-filter: blur(12px);
+  border-radius: 16px;
+  transition: transform 0.2s cubic-bezier(0.4,0,0.2,1), box-shadow 0.2s, border-color 0.2s;
+}
+.card:hover {
+  transform: translateY(-2px);
+  box-shadow: 0 8px 32px rgba(0,0,0,0.3), 0 0 0 1px rgba(129,140,248,0.12);
+  border-color: rgba(129,140,248,0.15);
+}
+.card-title {
+  font-weight: 800;
+  font-size: 15px;
+  background: linear-gradient(135deg, #f1f5f9 0%, #94a3b8 100%);
+  -webkit-background-clip: text;
+  -webkit-text-fill-color: transparent;
+  background-clip: text;
+}
+
+/* Stat cards */
+.stat {
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: 14px;
+  backdrop-filter: blur(12px);
+  transition: all 0.2s cubic-bezier(0.4,0,0.2,1);
+  position: relative;
+  overflow: hidden;
+}
+.stat::before {
+  content: '';
+  position: absolute;
+  top: 0; left: 0; right: 0; height: 1px;
+  background: linear-gradient(90deg, transparent, rgba(129,140,248,0.4), transparent);
+}
+.stat:hover {
+  transform: translateY(-3px);
+  box-shadow: var(--glow);
+  border-color: rgba(129,140,248,0.2);
+}
+.stat-val {
+  font-size: 32px;
+  font-weight: 900;
+  letter-spacing: -1px;
+}
+
+/* Table enhancements */
+.tbl th {
+  background: rgba(255,255,255,0.03);
+  font-size: 10.5px;
+  letter-spacing: 0.8px;
+  color: var(--muted);
+  border-bottom: 1px solid var(--border);
+}
+.tbl tr:hover td {
+  background: rgba(129,140,248,0.05);
+}
+.tbl td { border-bottom: 1px solid rgba(255,255,255,0.04); }
+
+/* Buttons */
+.btn {
+  background: linear-gradient(135deg, #6366f1 0%, #818cf8 100%);
+  border: none;
+  border-radius: 10px;
+  font-weight: 700;
+  letter-spacing: 0.2px;
+  box-shadow: 0 4px 14px rgba(99,102,241,0.35);
+  transition: all 0.2s;
+  position: relative;
+  overflow: hidden;
+}
+.btn::after {
+  content: '';
+  position: absolute;
+  top: 0; left: -100%; width: 100%; height: 100%;
+  background: linear-gradient(90deg, transparent, rgba(255,255,255,0.15), transparent);
+  transition: left 0.4s;
+}
+.btn:hover::after { left: 100%; }
+.btn:hover {
+  transform: translateY(-1px);
+  box-shadow: 0 6px 20px rgba(99,102,241,0.5);
+}
+
+/* Inputs */
+input, select, textarea {
+  background: rgba(255,255,255,0.05);
+  border: 1px solid rgba(255,255,255,0.08);
+  border-radius: 10px;
+  color: var(--text);
+  transition: all 0.2s;
+}
+input:focus, select:focus, textarea:focus {
+  border-color: rgba(129,140,248,0.5);
+  box-shadow: 0 0 0 3px rgba(129,140,248,0.1);
+  background: rgba(255,255,255,0.07);
+  outline: none;
+}
+select option { background: #0f1117; color: var(--text); }
+
+/* Progress bars */
+.progress-bar {
+  background: rgba(255,255,255,0.06);
+  border-radius: 99px;
+  overflow: hidden;
+  height: 7px;
+}
+.progress-fill {
+  border-radius: 99px;
+  position: relative;
+  overflow: hidden;
+}
+.progress-fill::after {
+  content: '';
+  position: absolute;
+  top: 0; left: -100%; width: 60%; height: 100%;
+  background: linear-gradient(90deg, transparent, rgba(255,255,255,0.3), transparent);
+  animation: shimmer 2s infinite;
+}
+@keyframes shimmer { to { left: 200%; } }
+
+/* Badge pills */
+.badge-pill {
+  font-weight: 700;
+  letter-spacing: 0.2px;
+  border-radius: 99px;
+  padding: 3px 10px;
+  font-size: 11px;
+}
+.green  { background: rgba(74,222,128,0.12); color: var(--green); border: 1px solid rgba(74,222,128,0.2); }
+.yellow { background: rgba(251,191,36,0.1); color: var(--yellow); border: 1px solid rgba(251,191,36,0.2); }
+.red    { background: rgba(248,113,113,0.1); color: var(--red); border: 1px solid rgba(248,113,113,0.2); }
+.blue   { background: rgba(129,140,248,0.12); color: var(--accent); border: 1px solid rgba(129,140,248,0.2); }
+.cyan   { background: rgba(34,211,238,0.1); color: var(--accent2); border: 1px solid rgba(34,211,238,0.2); }
+.orange { background: rgba(251,146,60,0.1); color: var(--orange); border: 1px solid rgba(251,146,60,0.2); }
+
+/* Code blocks */
+pre {
+  background: rgba(0,0,0,0.5);
+  border: 1px solid rgba(129,140,248,0.1);
+  border-radius: 12px;
+  position: relative;
+}
+pre::before {
+  content: '';
+  position: absolute;
+  top: 0; left: 0; right: 0; height: 1px;
+  background: linear-gradient(90deg, rgba(129,140,248,0.4), rgba(34,211,238,0.4), transparent);
+}
+code { color: var(--accent2); }
+pre code { color: #c9d1d9; }
+
+/* Alert boxes */
+.alert {
+  border-radius: 12px;
+  backdrop-filter: blur(8px);
+}
+.alert-red    { background: rgba(248,113,113,0.07); border-left: 3px solid var(--red); }
+.alert-yellow { background: rgba(251,191,36,0.07); border-left: 3px solid var(--yellow); }
+.alert-green  { background: rgba(74,222,128,0.07); border-left: 3px solid var(--green); }
+.alert-blue   { background: rgba(129,140,248,0.07); border-left: 3px solid var(--accent); }
+
+/* Page header */
+.page-header h1 {
+  font-size: 26px;
+  font-weight: 900;
+  letter-spacing: -0.5px;
+  background: linear-gradient(135deg, #f1f5f9 20%, #94a3b8 100%);
+  -webkit-background-clip: text;
+  -webkit-text-fill-color: transparent;
+  background-clip: text;
+}
+.page-header p { color: var(--muted); font-size: 14px; }
+
+/* Page transitions */
+.page {
+  animation: pageIn 0.3s cubic-bezier(0.4,0,0.2,1) both;
+}
+@keyframes pageIn {
+  from { opacity: 0; transform: translateY(10px); }
+  to   { opacity: 1; transform: translateY(0); }
+}
+
+/* Main area */
+.main { padding: 28px 32px; }
+
+/* Nav group labels */
+.nav-group {
+  font-size: 9.5px;
+  font-weight: 700;
+  letter-spacing: 1.2px;
+  color: rgba(148,163,184,0.5);
+  padding: 10px 16px 3px;
+}
+
+/* Checklist */
+.check-icon.ok   { background: rgba(74,222,128,0.15); color: var(--green); }
+.check-icon.warn { background: rgba(251,191,36,0.15); color: var(--yellow); }
+.check-icon.bad  { background: rgba(248,113,113,0.15); color: var(--red); }
+
+/* Overview path steps */
+.path-step {
+  background: rgba(255,255,255,0.04);
+  border: 1px solid rgba(255,255,255,0.07);
+  border-radius: 12px;
+  transition: all 0.2s;
+}
+.path-step:hover { transform: translateY(-2px); box-shadow: var(--glow); }
+
+/* Chart containers */
+.chart-wrap {
+  position: relative;
+  padding: 8px;
+  background: rgba(0,0,0,0.2);
+  border-radius: 12px;
+  border: 1px solid rgba(255,255,255,0.05);
+}
+
+/* Top accent line on cards on hover */
+.card:hover .card-title {
+  background: linear-gradient(135deg, var(--accent) 0%, var(--accent2) 100%);
+  -webkit-background-clip: text;
+  -webkit-text-fill-color: transparent;
+  background-clip: text;
+}
+
+/* Glowing live metrics */
+.live-metric {
+  position: relative;
+}
+.live-metric::after {
+  content: '●';
+  position: absolute;
+  top: 8px; right: 8px;
+  font-size: 8px;
+  color: var(--green);
+  animation: blink 1.5s infinite;
+}
+@keyframes blink { 0%,100%{opacity:1} 50%{opacity:0.3} }
+
+/* Nav badge */
+.nav-item .badge { border-radius: 99px; font-size: 9px; padding: 1px 6px; font-weight: 700; }
+.nav-item .badge.new { background: linear-gradient(135deg, var(--green) 0%, #059669 100%); }
+.nav-item .badge { background: linear-gradient(135deg, var(--red) 0%, #dc2626 100%); }
+</style>
+</head>
+<body>
+<div class="app">
+
+<!-- SIDEBAR -->
+<nav class="sidebar">
+  <div class="logo" style="font-size:15px;letter-spacing:-0.3px">⚡ Local LLM<br><span style="font-size:11px;font-weight:600;letter-spacing:0.5px">DECISION HUB · GOD MODE</span></div>
+
+  <div class="nav-group">Foundation</div>
+  <div class="nav-item active" onclick="show('overview')">📊 <span>Overview</span></div>
+  <div class="nav-item" onclick="show('models')">🤖 <span>Model Picker</span></div>
+  <div class="nav-item" onclick="show('hardware')">💻 <span>Hardware Calc</span></div>
+  <div class="nav-item" onclick="show('rag')">🔍 <span>RAG Builder</span></div>
+
+  <div class="nav-group">Critical Gaps</div>
+  <div class="nav-item" onclick="show('eval')">🧪 <span>Evaluation</span> <span class="badge new">NEW</span></div>
+  <div class="nav-item" onclick="show('prompts')">📝 <span>Prompt Mgmt</span> <span class="badge new">NEW</span></div>
+  <div class="nav-item" onclick="show('hallucination')">🚨 <span>Hallucination</span> <span class="badge new">NEW</span></div>
+  <div class="nav-item" onclick="show('fallback')">🔀 <span>Fallback Chain</span> <span class="badge new">NEW</span></div>
+  <div class="nav-item" onclick="show('context')">📏 <span>Context Mgmt</span> <span class="badge new">NEW</span></div>
+  <div class="nav-item" onclick="show('license')">⚖️ <span>License Risk</span> <span class="badge new">NEW</span></div>
+
+  <div class="nav-group">Market Intel</div>
+  <div class="nav-item" onclick="show('layman')">🙋 <span>Plain English</span> <span class="badge new">NEW</span></div>
+  <div class="nav-item" onclick="show('industry')">📈 <span>Industry Data</span> <span class="badge new">2026</span></div>
+  <div class="nav-item" onclick="show('sme-sources')">🔬 <span>SME Sources</span> <span class="badge new">NEW</span></div>
+
+  <div class="nav-group">Production</div>
+  <div class="nav-item" onclick="show('security')">🔒 <span>Security</span></div>
+  <div class="nav-item" onclick="show('monitoring')">📡 <span>Monitoring</span></div>
+  <div class="nav-item" onclick="show('cost')">💰 <span>Cost Analysis</span></div>
+  <div class="nav-item" onclick="show('quickstart')">🚀 <span>Quick Start</span></div>
+</nav>
+
+<!-- MAIN -->
+<div class="main">
+
+<!-- ===== OVERVIEW ===== -->
+<div id="page-overview" class="page active">
+  <div class="page-header">
+    <h1>📊 Local LLM Decision Hub</h1>
+    <p>Everything you need to choose, deploy, and operate a local LLM stack — including the critical gaps most guides miss.</p>
+  </div>
+
+  <div class="alert alert-red">
+    <strong>⚠️ What most guides skip:</strong> Evaluation framework, prompt version control, hallucination detection, fallback chains, context window management, and license risk. These are under "Critical Gaps" in the sidebar.
+  </div>
+
+  <div class="grid-4" style="margin-bottom:20px">
+    <div class="stat live-metric"><div class="stat-val count-up" data-target="17" style="color:var(--accent)">0</div><div class="stat-label">Dashboard Sections</div></div>
+    <div class="stat"><div class="stat-val count-up" data-target="12" style="color:var(--green)">0</div><div class="stat-label">Models Covered</div></div>
+    <div class="stat"><div class="stat-val count-up" data-target="6" style="color:var(--yellow)">0</div><div class="stat-label">Critical Gaps Filled</div></div>
+    <div class="stat"><div class="stat-val" style="color:var(--accent2)">2026</div><div class="stat-label">Data Currency</div></div>
+  </div>
+
+  <div class="grid-2">
+    <div class="card">
+      <div class="card-title">🎯 Quick Decision Matrix</div>
+      <div class="card-sub">Match your situation to the right starting point</div>
+      <table class="tbl">
+        <tr><th>Your Situation</th><th>Start Here</th></tr>
+        <tr><td>Just exploring, 16GB RAM</td><td><span class="badge-pill blue">Model Picker</span></td></tr>
+        <tr><td>Have proprietary docs</td><td><span class="badge-pill cyan">RAG Builder</span></td></tr>
+        <tr><td>Need production reliability</td><td><span class="badge-pill orange">Fallback Chain</span></td></tr>
+        <tr><td>Outputs are wrong too often</td><td><span class="badge-pill red">Hallucination</span></td></tr>
+        <tr><td>Model changed, broke things</td><td><span class="badge-pill green">Eval Framework</span></td></tr>
+        <tr><td>Prompts inconsistent</td><td><span class="badge-pill blue">Prompt Mgmt</span></td></tr>
+        <tr><td>Commercial deployment</td><td><span class="badge-pill yellow">License Risk</span></td></tr>
+      </table>
+    </div>
+    <div class="card">
+      <div class="card-title">🏆 Top Models 2026</div>
+      <div class="card-sub">Best per category — updated Jun 2026</div>
+      <table class="tbl">
+        <tr><th>Category</th><th>Model</th><th>Size</th></tr>
+        <tr><td>Best Overall</td><td><strong>Qwen 3 72B</strong></td><td>72B</td></tr>
+        <tr><td>Low VRAM</td><td><strong>Phi-4-mini</strong></td><td>3.8B</td></tr>
+        <tr><td>Speed</td><td><strong>Mistral Small 3</strong></td><td>7B</td></tr>
+        <tr><td>Coding</td><td><strong>Devstral</strong></td><td>22B</td></tr>
+        <tr><td>Reasoning</td><td><strong>GPT-OSS 20B</strong></td><td>20B</td></tr>
+        <tr><td>Multimodal</td><td><strong>Gemma 3 27B</strong></td><td>27B</td></tr>
+        <tr><td>MoE Efficiency</td><td><strong>Mixtral 8x7B</strong></td><td>13B active</td></tr>
+      </table>
+    </div>
+  </div>
+
+  <div class="card">
+    <div class="card-title">🛣️ Production Readiness Path</div>
+    <div class="card-sub">Complete this sequence before going live</div>
+    <div style="display:flex;gap:8px;flex-wrap:wrap;margin-top:8px">
+      <div style="background:var(--surface2);border-radius:8px;padding:12px 16px;text-align:center;min-width:110px">
+        <div style="font-size:20px">1️⃣</div>
+        <div style="font-weight:700;font-size:13px;margin-top:4px">Pick Model</div>
+        <div style="color:var(--muted);font-size:11px">Match hardware + task</div>
+      </div>
+      <div style="align-self:center;color:var(--muted);font-size:20px">→</div>
+      <div style="background:var(--surface2);border-radius:8px;padding:12px 16px;text-align:center;min-width:110px">
+        <div style="font-size:20px">2️⃣</div>
+        <div style="font-weight:700;font-size:13px;margin-top:4px">Build RAG</div>
+        <div style="color:var(--muted);font-size:11px">Add your data</div>
+      </div>
+      <div style="align-self:center;color:var(--muted);font-size:20px">→</div>
+      <div style="background:rgba(99,102,241,.15);border:1px solid var(--accent);border-radius:8px;padding:12px 16px;text-align:center;min-width:110px">
+        <div style="font-size:20px">3️⃣</div>
+        <div style="font-weight:700;font-size:13px;margin-top:4px">Eval Suite</div>
+        <div style="color:var(--muted);font-size:11px">Build test set first</div>
+      </div>
+      <div style="align-self:center;color:var(--muted);font-size:20px">→</div>
+      <div style="background:rgba(99,102,241,.15);border:1px solid var(--accent);border-radius:8px;padding:12px 16px;text-align:center;min-width:110px">
+        <div style="font-size:20px">4️⃣</div>
+        <div style="font-weight:700;font-size:13px;margin-top:4px">Prompt Ctrl</div>
+        <div style="color:var(--muted);font-size:11px">Version prompts</div>
+      </div>
+      <div style="align-self:center;color:var(--muted);font-size:20px">→</div>
+      <div style="background:rgba(99,102,241,.15);border:1px solid var(--accent);border-radius:8px;padding:12px 16px;text-align:center;min-width:110px">
+        <div style="font-size:20px">5️⃣</div>
+        <div style="font-weight:700;font-size:13px;margin-top:4px">Fallback Chain</div>
+        <div style="color:var(--muted);font-size:11px">Handle failures</div>
+      </div>
+      <div style="align-self:center;color:var(--muted);font-size:20px">→</div>
+      <div style="background:var(--surface2);border-radius:8px;padding:12px 16px;text-align:center;min-width:110px">
+        <div style="font-size:20px">6️⃣</div>
+        <div style="font-weight:700;font-size:13px;margin-top:4px">Monitor</div>
+        <div style="color:var(--muted);font-size:11px">Observe in prod</div>
+      </div>
+    </div>
+    <div style="margin-top:12px;color:var(--muted);font-size:12px">Steps 3–5 (highlighted) are what most teams skip and regret.</div>
+  </div>
+</div>
+
+<!-- ===== MODEL PICKER ===== -->
+<div id="page-models" class="page">
+  <div class="page-header"><h1>🤖 Model Picker</h1><p>Filter and compare local LLMs by use case, size, and license</p></div>
+  <div class="card">
+    <div class="grid-3" style="margin-bottom:16px">
+      <div class="form-group">
+        <label>Use Case</label>
+        <select id="filter-usecase" onchange="filterModels()">
+          <option value="">All</option>
+          <option>General</option>
+          <option>Coding</option>
+          <option>Reasoning</option>
+          <option>Multimodal</option>
+          <option>Embeddings</option>
+          <option>Low Resource</option>
+        </select>
+      </div>
+      <div class="form-group">
+        <label>Max Size</label>
+        <select id="filter-size" onchange="filterModels()">
+          <option value="">Any</option>
+          <option value="4">≤ 4B</option>
+          <option value="8">≤ 8B</option>
+          <option value="14">≤ 14B</option>
+          <option value="35">≤ 35B</option>
+          <option value="72">≤ 72B</option>
+        </select>
+      </div>
+      <div class="form-group">
+        <label>License</label>
+        <select id="filter-license" onchange="filterModels()">
+          <option value="">Any</option>
+          <option>Apache 2.0</option>
+          <option>MIT</option>
+          <option>Meta Community</option>
+        </select>
+      </div>
+    </div>
+    <table class="tbl" id="model-table">
+      <thead><tr><th>Model</th><th>Params</th><th>VRAM (Q4)</th><th>Speed</th><th>Best For</th><th>License</th><th>Score</th></tr></thead>
+      <tbody id="model-tbody"></tbody>
+    </table>
+  </div>
+
+  <div class="grid-2">
+    <div class="card">
+      <div class="card-title">Model Comparison Radar</div>
+      <div class="card-sub">Compare top models across key dimensions</div>
+      <div class="chart-wrap" style="height:300px">
+        <canvas id="radarChart"></canvas>
+      </div>
+    </div>
+    <div class="card">
+      <div class="card-title">Benchmark Scores (MMLU / HumanEval)</div>
+      <div class="card-sub">Standardised performance comparison</div>
+      <div class="chart-wrap" style="height:300px">
+        <canvas id="benchChart"></canvas>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- ===== HARDWARE CALC ===== -->
+<div id="page-hardware" class="page">
+  <div class="page-header"><h1>💻 Hardware Calculator</h1><p>Find out if your machine can run a model and how fast</p></div>
+  <div class="grid-2">
+    <div class="card">
+      <div class="card-title">Configure Your Setup</div>
+      <div class="form-group"><label>Model</label>
+        <select id="hw-model" onchange="calcHardware()">
+          <option value="3.8,2">Phi-4-mini (3.8B)</option>
+          <option value="7,4">Mistral Small 3 / Qwen 3 7B</option>
+          <option value="8,5">Llama 3.3 8B</option>
+          <option value="14,9">Qwen 3 14B</option>
+          <option value="22,14">Devstral (22B)</option>
+          <option value="32,20">Gemma 3 27B</option>
+          <option value="70,42">Qwen 3 72B / Llama 3.3 70B</option>
+          <option value="120,72">GPT-OSS 120B</option>
+        </select>
+      </div>
+      <div class="form-group"><label>Quantization</label>
+        <select id="hw-quant" onchange="calcHardware()">
+          <option value="0.5">Q4_K_M (recommended)</option>
+          <option value="0.6">Q5_K_M</option>
+          <option value="0.75">Q6_K</option>
+          <option value="1">Q8_0 (best quality)</option>
+        </select>
+      </div>
+      <div class="form-group"><label>Context Length (tokens)</label>
+        <select id="hw-ctx" onchange="calcHardware()">
+          <option value="4">4K</option>
+          <option value="8">8K</option>
+          <option value="32">32K</option>
+          <option value="128">128K</option>
+        </select>
+      </div>
+      <div class="form-group"><label>Your GPU VRAM (GB)</label>
+        <input type="number" id="hw-vram" value="24" min="4" max="200" oninput="calcHardware()">
+      </div>
+      <div class="form-group"><label>System RAM (GB)</label>
+        <input type="number" id="hw-ram" value="32" min="8" max="512" oninput="calcHardware()">
+      </div>
+    </div>
+    <div class="card" id="hw-result">
+      <div class="card-title">Result</div>
+      <div id="hw-output" style="margin-top:12px"></div>
+    </div>
+  </div>
+
+  <div class="card">
+    <div class="card-title">Hardware Tier Guide</div>
+    <table class="tbl">
+      <thead><tr><th>Tier</th><th>Hardware</th><th>Best Models</th><th>Speed</th><th>Budget (USD)</th></tr></thead>
+      <tbody>
+        <tr><td><span class="badge-pill yellow">Entry</span></td><td>Apple M2/M3 16GB or RTX 3060 12GB</td><td>Phi-4-mini, Gemma 3 4B, Mistral 7B</td><td>15–25 t/s</td><td>$800–$1,500</td></tr>
+        <tr><td><span class="badge-pill blue">Mid</span></td><td>Apple M3 Max 36GB or RTX 4090 24GB</td><td>Llama 8B Q8, Qwen 3 14B, Mistral 7B Q8</td><td>30–55 t/s</td><td>$2,000–$4,000</td></tr>
+        <tr><td><span class="badge-pill green">High</span></td><td>Apple M4 Ultra 64GB or 2×RTX 4090</td><td>70B Q4 offload, Devstral, Mixtral 8x7B</td><td>15–30 t/s</td><td>$5,000–$10,000</td></tr>
+        <tr><td><span class="badge-pill orange">Pro</span></td><td>RTX 6000 Ada 48GB or A100 80GB</td><td>70B Q5 in VRAM, GPT-OSS 20B</td><td>25–45 t/s</td><td>$10,000–$20,000</td></tr>
+        <tr><td><span class="badge-pill red">Enterprise</span></td><td>H100 80GB ×4 or Mac Studio cluster</td><td>120B+, 405B Q4, multi-user serving</td><td>30–80 t/s</td><td>$50,000+</td></tr>
+      </tbody>
+    </table>
+  </div>
+</div>
+
+<!-- ===== RAG BUILDER ===== -->
+<div id="page-rag" class="page">
+  <div class="page-header"><h1>🔍 RAG Builder</h1><p>Configure your retrieval stack — including the data freshness pipeline most setups skip</p></div>
+  <div class="grid-2">
+    <div class="card">
+      <div class="card-title">Stack Configurator</div>
+      <div class="form-group"><label>Document Type</label>
+        <select id="rag-doctype" onchange="configRAG()">
+          <option>PDF / Word / Text</option>
+          <option>Code Repository</option>
+          <option>Web Pages</option>
+          <option>Database Records</option>
+          <option>Emails / Slack</option>
+        </select>
+      </div>
+      <div class="form-group"><label>Volume</label>
+        <select id="rag-volume" onchange="configRAG()">
+          <option>Small (&lt;1K docs)</option>
+          <option>Medium (1K–100K docs)</option>
+          <option>Large (100K+ docs)</option>
+        </select>
+      </div>
+      <div class="form-group"><label>Language</label>
+        <select id="rag-lang" onchange="configRAG()">
+          <option>English only</option>
+          <option>Multilingual</option>
+        </select>
+      </div>
+      <div class="form-group"><label>Latency Priority</label>
+        <select id="rag-latency" onchange="configRAG()">
+          <option>Low (&lt;500ms)</option>
+          <option>Balanced</option>
+          <option>Quality first (&gt;2s OK)</option>
+        </select>
+      </div>
+      <button class="btn" onclick="configRAG()">Generate Stack</button>
+    </div>
+    <div class="card" id="rag-result">
+      <div class="card-title">Recommended Stack</div>
+      <div id="rag-output" style="margin-top:12px;color:var(--muted)">Configure options and click Generate Stack</div>
+    </div>
+  </div>
+
+  <div class="card">
+    <div class="card-title">⚠️ RAG Data Freshness Pipeline (Critical Gap)</div>
+    <div class="card-sub">Most setups build RAG once and forget it. Documents change. Here's how to keep your vector DB current.</div>
+    <div class="grid-3">
+      <div style="background:var(--surface2);border-radius:8px;padding:14px">
+        <div style="font-weight:700;margin-bottom:8px;color:var(--accent2)">1. Detect Changes</div>
+        <ul style="color:var(--muted);font-size:12px;line-height:1.8;padding-left:16px">
+          <li>Hash each source document on ingest</li>
+          <li>Store hash + timestamp in metadata</li>
+          <li>Watch for file system events (inotify)</li>
+          <li>Poll APIs for updated records</li>
+          <li>Set TTL per document type</li>
+        </ul>
+      </div>
+      <div style="background:var(--surface2);border-radius:8px;padding:14px">
+        <div style="font-weight:700;margin-bottom:8px;color:var(--accent2)">2. Incremental Re-index</div>
+        <ul style="color:var(--muted);font-size:12px;line-height:1.8;padding-left:16px">
+          <li>Delete old chunks by doc ID</li>
+          <li>Re-chunk changed documents only</li>
+          <li>Re-embed and upsert to vector DB</li>
+          <li>Never rebuild full index in prod</li>
+          <li>Run during off-peak hours</li>
+        </ul>
+      </div>
+      <div style="background:var(--surface2);border-radius:8px;padding:14px">
+        <div style="font-weight:700;margin-bottom:8px;color:var(--accent2)">3. Validate Quality</div>
+        <ul style="color:var(--muted);font-size:12px;line-height:1.8;padding-left:16px">
+          <li>Run eval queries after re-index</li>
+          <li>Alert if retrieval recall drops</li>
+          <li>Spot-check chunk boundaries</li>
+          <li>Monitor index size vs doc count</li>
+          <li>Log retrieval hit rates</li>
+        </ul>
+      </div>
+    </div>
+    <pre style="margin-top:16px"><code># Incremental re-index example (Python + ChromaDB)
+import hashlib, chromadb
+
+def upsert_document(collection, doc_id, content, metadata):
+    new_hash = hashlib.sha256(content.encode()).hexdigest()
+    existing = collection.get(where={"doc_id": doc_id}, include=["metadatas"])
+
+    if existing["metadatas"] and existing["metadatas"][0].get("hash") == new_hash:
+        return  # unchanged, skip
+
+    # Delete old chunks for this doc
+    collection.delete(where={"doc_id": doc_id})
+
+    # Re-chunk and re-embed
+    chunks = chunk_text(content, size=512, overlap=128)
+    embeddings = embed(chunks)  # your embedding model
+
+    collection.upsert(
+        ids=[f"{doc_id}_{i}" for i in range(len(chunks))],
+        documents=chunks,
+        embeddings=embeddings,
+        metadatas=[{**metadata, "doc_id": doc_id, "hash": new_hash, "chunk": i}
+                   for i in range(len(chunks))]
+    )</code></pre>
+  </div>
+</div>
+
+<!-- ===== EVALUATION FRAMEWORK ===== -->
+<div id="page-eval" class="page">
+  <div class="page-header">
+    <h1>🧪 Evaluation Framework</h1>
+    <p>The most critical step most teams skip. Without this, you're guessing whether your model works.</p>
+  </div>
+
+  <div class="alert alert-red"><strong>Why this is #1 critical gap:</strong> MMLU benchmarks tell you how a model performs on standardized tasks. They tell you nothing about whether it works for YOUR data, YOUR prompts, and YOUR edge cases. Without a test suite, every model swap or prompt change is a gamble.</div>
+
+  <div class="grid-2">
+    <div class="card">
+      <div class="card-title">Test Suite Structure</div>
+      <div class="card-sub">Build this before you do anything else</div>
+      <table class="tbl">
+        <thead><tr><th>Layer</th><th>What to Test</th><th>Min Examples</th><th>Scoring</th></tr></thead>
+        <tbody>
+          <tr><td><span class="badge-pill green">Unit</span></td><td>Single-turn, constrained inputs</td><td>50–100</td><td>Exact match / regex</td></tr>
+          <tr><td><span class="badge-pill blue">Integration</span></td><td>Full RAG pipeline, tool calls</td><td>50–100</td><td>LLM-as-judge</td></tr>
+          <tr><td><span class="badge-pill yellow">Adversarial</span></td><td>Edge cases, bad inputs, prompt injections</td><td>30–50</td><td>Manual review</td></tr>
+          <tr><td><span class="badge-pill orange">Regression</span></td><td>Past failures that were fixed</td><td>All fixed bugs</td><td>Must not regress</td></tr>
+          <tr><td><span class="badge-pill cyan">Performance</span></td><td>Latency, token throughput, cost</td><td>10–20</td><td>Numeric thresholds</td></tr>
+        </tbody>
+      </table>
+    </div>
+    <div class="card">
+      <div class="card-title">Scoring Methods</div>
+      <div class="card-sub">Choose the right method per task type</div>
+      <table class="tbl">
+        <thead><tr><th>Task Type</th><th>Method</th><th>Reliability</th></tr></thead>
+        <tbody>
+          <tr><td>Classification, yes/no</td><td>Exact match</td><td><span class="badge-pill green">High</span></td></tr>
+          <tr><td>Extraction (dates, names)</td><td>Regex / JSON schema validation</td><td><span class="badge-pill green">High</span></td></tr>
+          <tr><td>Summarization</td><td>ROUGE-L + LLM judge</td><td><span class="badge-pill yellow">Medium</span></td></tr>
+          <tr><td>Q&A with reference</td><td>Semantic similarity (cosine &gt;0.85)</td><td><span class="badge-pill yellow">Medium</span></td></tr>
+          <tr><td>Open-ended generation</td><td>LLM-as-judge (GPT-4o or local 70B)</td><td><span class="badge-pill yellow">Medium</span></td></tr>
+          <tr><td>Code generation</td><td>Unit test execution pass rate</td><td><span class="badge-pill green">High</span></td></tr>
+        </tbody>
+      </table>
+    </div>
+  </div>
+
+  <div class="card">
+    <div class="card-title">Model Comparison Simulator</div>
+    <div class="card-sub">Visualize how models score on your task dimensions</div>
+    <div style="display:flex;gap:12px;flex-wrap:wrap;margin-bottom:16px">
+      <div id="eval-results" style="flex:1;min-width:300px">
+        <table class="tbl" id="eval-table">
+          <thead><tr><th>Model</th><th>Accuracy</th><th>Latency</th><th>Cost</th><th>Consistency</th><th>Overall</th></tr></thead>
+          <tbody>
+            <tr><td>Qwen 3 72B Q4</td><td><div class="progress-bar"><div class="progress-fill" style="width:88%;background:var(--green)"></div></div> 88%</td><td><span class="badge-pill yellow">2.1s</span></td><td><span class="badge-pill green">$0</span></td><td>91%</td><td><span class="badge-pill green">A</span></td></tr>
+            <tr><td>Llama 3.3 8B Q8</td><td><div class="progress-bar"><div class="progress-fill" style="width:74%;background:var(--yellow)"></div></div> 74%</td><td><span class="badge-pill green">0.4s</span></td><td><span class="badge-pill green">$0</span></td><td>79%</td><td><span class="badge-pill yellow">B</span></td></tr>
+            <tr><td>Mistral 7B Q4</td><td><div class="progress-bar"><div class="progress-fill" style="width:71%;background:var(--yellow)"></div></div> 71%</td><td><span class="badge-pill green">0.3s</span></td><td><span class="badge-pill green">$0</span></td><td>76%</td><td><span class="badge-pill yellow">B-</span></td></tr>
+            <tr><td>GPT-4o (cloud)</td><td><div class="progress-bar"><div class="progress-fill" style="width:95%;background:var(--green)"></div></div> 95%</td><td><span class="badge-pill green">0.8s</span></td><td><span class="badge-pill red">$$$</span></td><td>94%</td><td><span class="badge-pill green">A+</span></td></tr>
+          </tbody>
+        </table>
+        <div style="margin-top:12px;font-size:12px;color:var(--muted)">
+          💡 <strong>Takeaway:</strong> Local 72B gets 88% vs GPT-4o's 95% — for most tasks that 7-point gap is acceptable when you consider $0 vs $$$ per query.
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <div class="card">
+    <div class="card-title">Eval Pipeline Code</div>
+    <pre><code>import json, time
+from openai import OpenAI  # use with local Ollama endpoint
+
+client = OpenAI(base_url="http://localhost:11434/v1", api_key="ollama")
+
+def run_eval(model, test_cases, judge_model="qwen3:72b"):
+    results = []
+    for case in test_cases:
+        start = time.time()
+        response = client.chat.completions.create(
+            model=model,
+            messages=[{"role":"user","content": case["input"]}]
+        )
+        latency = time.time() - start
+        output = response.choices[0].message.content
+
+        # Score with LLM judge
+        score = judge(judge_model, case["input"], output, case["expected"])
+        results.append({"case": case["id"], "latency": latency, "score": score})
+
+    accuracy = sum(r["score"] for r in results) / len(results)
+    avg_latency = sum(r["latency"] for r in results) / len(results)
+    return {"model": model, "accuracy": accuracy, "avg_latency": avg_latency}
+
+def judge(judge_model, question, answer, expected):
+    prompt = f"""Rate this answer 0-1 (1=correct, 0=wrong).
+Question: {question}
+Expected: {expected}
+Answer: {answer}
+Return only a number between 0 and 1."""
+    response = client.chat.completions.create(
+        model=judge_model,
+        messages=[{"role":"user","content": prompt}]
+    )
+    try: return float(response.choices[0].message.content.strip())
+    except: return 0.5</code></pre>
+  </div>
+</div>
+
+<!-- ===== PROMPT MANAGEMENT ===== -->
+<div id="page-prompts" class="page">
+  <div class="page-header">
+    <h1>📝 Prompt Version Control</h1>
+    <p>System prompts are code. Treat them that way — version, test, and roll back.</p>
+  </div>
+
+  <div class="alert alert-yellow"><strong>Common failure:</strong> A prompt that worked perfectly on Llama 3.3 produces different behavior after switching to Qwen 3 — because the chat template changed. Without prompt versioning, you can't reproduce old behavior or bisect what broke.</div>
+
+  <div class="grid-2">
+    <div class="card">
+      <div class="card-title">What to Version</div>
+      <table class="tbl">
+        <thead><tr><th>Artifact</th><th>Why It Matters</th><th>Change Frequency</th></tr></thead>
+        <tbody>
+          <tr><td>System prompt</td><td>Sets model persona, constraints, output format</td><td><span class="badge-pill yellow">Weekly</span></td></tr>
+          <tr><td>Chat template</td><td>Token-level format differs per model family</td><td><span class="badge-pill green">Per model</span></td></tr>
+          <tr><td>RAG prompt template</td><td>How retrieved context is injected</td><td><span class="badge-pill yellow">Monthly</span></td></tr>
+          <tr><td>Tool call schemas</td><td>JSON schema for function calling</td><td><span class="badge-pill blue">Rare</span></td></tr>
+          <tr><td>Few-shot examples</td><td>In-context examples that guide behavior</td><td><span class="badge-pill yellow">Per task</span></td></tr>
+          <tr><td>Stop sequences</td><td>Token patterns that end generation</td><td><span class="badge-pill blue">Rare</span></td></tr>
+        </tbody>
+      </table>
+    </div>
+    <div class="card">
+      <div class="card-title">Prompt Registry Schema</div>
+      <div class="card-sub">Store prompts as versioned JSON/YAML, not hardcoded strings</div>
+      <pre><code>{
+  "id": "customer-support-v2",
+  "version": "2.3.1",
+  "model": "qwen3:72b",
+  "template": "{{ system_prompt }}",
+  "system_prompt": "You are a helpful...",
+  "chat_template": "chatml",
+  "parameters": {
+    "temperature": 0.7,
+    "top_p": 0.9,
+    "max_tokens": 1024,
+    "stop": ["<|im_end|>"]
+  },
+  "eval_suite": "customer-support-evals-v2",
+  "created": "2026-06-01",
+  "author": "bamah",
+  "notes": "Added refusal handling for PII"
+}</code></pre>
+    </div>
+  </div>
+
+  <div class="card">
+    <div class="card-title">Prompt Lifecycle Workflow</div>
+    <div style="display:flex;align-items:center;gap:0;flex-wrap:wrap;margin:16px 0">
+      <div style="background:var(--surface2);border-radius:8px;padding:10px 14px;font-size:12px;text-align:center"><strong>Draft</strong><br><span style="color:var(--muted)">Write / iterate</span></div>
+      <div style="padding:0 8px;color:var(--muted)">→</div>
+      <div style="background:var(--surface2);border-radius:8px;padding:10px 14px;font-size:12px;text-align:center"><strong>Evaluate</strong><br><span style="color:var(--muted)">Run eval suite</span></div>
+      <div style="padding:0 8px;color:var(--muted)">→</div>
+      <div style="background:var(--surface2);border-radius:8px;padding:10px 14px;font-size:12px;text-align:center"><strong>A/B Test</strong><br><span style="color:var(--muted)">Split traffic 10/90</span></div>
+      <div style="padding:0 8px;color:var(--muted)">→</div>
+      <div style="background:rgba(34,197,94,.1);border:1px solid var(--green);border-radius:8px;padding:10px 14px;font-size:12px;text-align:center"><strong>Promote</strong><br><span style="color:var(--muted)">Tag as stable</span></div>
+      <div style="padding:0 8px;color:var(--muted)">→</div>
+      <div style="background:rgba(239,68,68,.1);border:1px solid var(--red);border-radius:8px;padding:10px 14px;font-size:12px;text-align:center"><strong>Rollback</strong><br><span style="color:var(--muted)">If regression</span></div>
+    </div>
+    <div class="grid-2">
+      <div>
+        <div style="font-weight:700;margin-bottom:8px">Chat Template Compatibility</div>
+        <table class="tbl">
+          <thead><tr><th>Model Family</th><th>Template</th><th>Special Tokens</th></tr></thead>
+          <tbody>
+            <tr><td>Qwen 3 / Qwen 2.5</td><td>ChatML</td><td>&lt;|im_start|&gt; / &lt;|im_end|&gt;</td></tr>
+            <tr><td>Llama 3.x</td><td>Llama-3</td><td>&lt;|begin_of_text|&gt; / &lt;|eot_id|&gt;</td></tr>
+            <tr><td>Mistral</td><td>Mistral-v3</td><td>[INST] / [/INST]</td></tr>
+            <tr><td>Phi-4</td><td>Phi-3</td><td>&lt;|user|&gt; / &lt;|assistant|&gt;</td></tr>
+            <tr><td>Gemma 3</td><td>Gemma</td><td>&lt;start_of_turn&gt;</td></tr>
+          </tbody>
+        </table>
+      </div>
+      <div>
+        <div style="font-weight:700;margin-bottom:8px">Anti-Patterns to Avoid</div>
+        <ul class="checklist">
+          <li><span class="check-icon bad">✗</span>Hardcoding prompts in application code</li>
+          <li><span class="check-icon bad">✗</span>No version history (impossible to roll back)</li>
+          <li><span class="check-icon bad">✗</span>Same prompt across different model families</li>
+          <li><span class="check-icon bad">✗</span>No eval run before promoting new prompt</li>
+          <li><span class="check-icon bad">✗</span>Deploying prompt changes without A/B test</li>
+        </ul>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- ===== HALLUCINATION DETECTION ===== -->
+<div id="page-hallucination" class="page">
+  <div class="page-header">
+    <h1>🚨 Hallucination Detection</h1>
+    <p>Detect, measure, and mitigate when your model confidently makes things up</p>
+  </div>
+
+  <div class="alert alert-red"><strong>The RAG trap:</strong> RAG doesn't prevent hallucination — it reduces it. A model can still fabricate details not in the retrieved chunks, or cite a chunk incorrectly. You must verify outputs against sources.</div>
+
+  <div class="grid-2">
+    <div class="card">
+      <div class="card-title">Detection Methods</div>
+      <table class="tbl">
+        <thead><tr><th>Method</th><th>How</th><th>Coverage</th><th>Cost</th></tr></thead>
+        <tbody>
+          <tr><td><strong>Citation check</strong></td><td>Verify every claim maps to a retrieved chunk</td><td><span class="badge-pill green">High for RAG</span></td><td>Low</td></tr>
+          <tr><td><strong>Consistency sampling</strong></td><td>Run same prompt 3× — if answers differ, confidence is low</td><td><span class="badge-pill yellow">Medium</span></td><td>3× inference</td></tr>
+          <tr><td><strong>NLI classifier</strong></td><td>Check if output entails the source context</td><td><span class="badge-pill yellow">Medium</span></td><td>Small model</td></tr>
+          <tr><td><strong>LLM-as-judge</strong></td><td>Ask a critic model "does this answer match the context?"</td><td><span class="badge-pill yellow">Medium</span></td><td>Extra inference</td></tr>
+          <tr><td><strong>Entity extraction diff</strong></td><td>Extract names/numbers — check they appear in source</td><td><span class="badge-pill green">High for facts</span></td><td>Low</td></tr>
+          <tr><td><strong>Perplexity spike</strong></td><td>High perplexity on an output segment = uncertain = risky</td><td><span class="badge-pill blue">Approximate</span></td><td>Low</td></tr>
+        </tbody>
+      </table>
+    </div>
+    <div class="card">
+      <div class="card-title">Hallucination Risk by Model Size</div>
+      <div style="margin-top:12px">
+        <div style="display:flex;justify-content:space-between;font-size:12px;margin-bottom:4px"><span>3.8B (Phi-4-mini)</span><span style="color:var(--red)">High risk</span></div>
+        <div class="progress-bar" style="margin-bottom:12px"><div class="progress-fill" style="width:75%;background:var(--red)"></div></div>
+        <div style="display:flex;justify-content:space-between;font-size:12px;margin-bottom:4px"><span>7–8B (Llama/Mistral)</span><span style="color:var(--orange)">Medium-high</span></div>
+        <div class="progress-bar" style="margin-bottom:12px"><div class="progress-fill" style="width:60%;background:var(--orange)"></div></div>
+        <div style="display:flex;justify-content:space-between;font-size:12px;margin-bottom:4px"><span>14–22B (Devstral)</span><span style="color:var(--yellow)">Medium</span></div>
+        <div class="progress-bar" style="margin-bottom:12px"><div class="progress-fill" style="width:40%;background:var(--yellow)"></div></div>
+        <div style="display:flex;justify-content:space-between;font-size:12px;margin-bottom:4px"><span>70B (Qwen 3/Llama)</span><span style="color:var(--green)">Low-medium</span></div>
+        <div class="progress-bar" style="margin-bottom:12px"><div class="progress-fill" style="width:25%;background:var(--green)"></div></div>
+        <div style="display:flex;justify-content:space-between;font-size:12px;margin-bottom:4px"><span>70B + RAG + citation</span><span style="color:var(--green)">Low</span></div>
+        <div class="progress-bar" style="margin-bottom:12px"><div class="progress-fill" style="width:10%;background:var(--green)"></div></div>
+      </div>
+      <div style="font-size:12px;color:var(--muted);margin-top:8px">Bars show approximate hallucination rate. RAG + citation checking is the biggest single reducer.</div>
+    </div>
+  </div>
+
+  <div class="card">
+    <div class="card-title">Citation Verification Pipeline</div>
+    <pre><code>def verify_with_citations(query, retrieved_chunks, model_answer):
+    """
+    1. Ask model to answer WITH citations (chunk IDs)
+    2. Verify every claim appears in cited chunk
+    3. Flag or suppress uncited claims
+    """
+    # Step 1: Structured prompt forcing citations
+    prompt = f"""Answer using ONLY the provided context.
+For every fact, cite the chunk ID like [chunk_1].
+If the answer is not in the context, say "I don't know".
+
+Context:
+{format_chunks(retrieved_chunks)}
+
+Question: {query}"""
+
+    answer = llm(prompt)
+
+    # Step 2: Extract citations from answer
+    cited_ids = re.findall(r'\[chunk_(\d+)\]', answer)
+
+    # Step 3: Check every sentence has a citation
+    sentences = split_sentences(answer)
+    uncited = [s for s in sentences if not re.search(r'\[chunk_\d+\]', s)
+               and not is_connector(s)]  # ignore "therefore", "however" etc.
+
+    # Step 4: Verify cited content supports the claim
+    hallucination_risk = "LOW"
+    if len(uncited) > 2 or len(cited_ids) == 0:
+        hallucination_risk = "HIGH"
+
+    return {"answer": answer, "uncited_sentences": uncited, "risk": hallucination_risk}</code></pre>
+  </div>
+
+  <div class="card">
+    <div class="card-title">Mitigation Strategies</div>
+    <div class="grid-3">
+      <div style="background:var(--surface2);border-radius:8px;padding:14px">
+        <div style="font-weight:700;color:var(--accent2);margin-bottom:8px">Prompt-Level</div>
+        <ul style="font-size:12px;line-height:1.8;color:var(--muted);padding-left:14px">
+          <li>Force "I don't know" when uncertain</li>
+          <li>Require citations in system prompt</li>
+          <li>Use structured output (JSON schema)</li>
+          <li>Add "only use provided context" instruction</li>
+          <li>Temperature 0 for factual tasks</li>
+        </ul>
+      </div>
+      <div style="background:var(--surface2);border-radius:8px;padding:14px">
+        <div style="font-weight:700;color:var(--accent2);margin-bottom:8px">System-Level</div>
+        <ul style="font-size:12px;line-height:1.8;color:var(--muted);padding-left:14px">
+          <li>NLI entailment check post-generation</li>
+          <li>Consistency sampling (3 runs, vote)</li>
+          <li>Entity cross-reference against source</li>
+          <li>Number/date extraction validation</li>
+          <li>Flag for human review above threshold</li>
+        </ul>
+      </div>
+      <div style="background:var(--surface2);border-radius:8px;padding:14px">
+        <div style="font-weight:700;color:var(--accent2);margin-bottom:8px">Architecture-Level</div>
+        <ul style="font-size:12px;line-height:1.8;color:var(--muted);padding-left:14px">
+          <li>Larger models hallucinate less</li>
+          <li>Better retrieval = less hallucination</li>
+          <li>Reranker improves chunk relevance</li>
+          <li>Constrained decoding for structured output</li>
+          <li>Human-in-loop for high-stakes outputs</li>
+        </ul>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- ===== FALLBACK CHAIN ===== -->
+<div id="page-fallback" class="page">
+  <div class="page-header">
+    <h1>🔀 Fallback Chain Designer</h1>
+    <p>What happens when your local model fails, times out, or gives a bad answer? Design your recovery path.</p>
+  </div>
+
+  <div class="alert alert-yellow"><strong>Why this matters:</strong> Local models fail. GPUs OOM. Models time out. Queues back up. Without a fallback chain, your users get 503 errors. With one, they get a slightly slower (or slightly worse) response instead.</div>
+
+  <div class="card">
+    <div class="card-title">Fallback Chain Architecture</div>
+    <div style="display:flex;flex-direction:column;gap:12px;margin-top:12px">
+      <div style="display:flex;align-items:center;gap:12px">
+        <div style="background:rgba(34,197,94,.1);border:1px solid var(--green);border-radius:8px;padding:12px 20px;min-width:200px;text-align:center">
+          <div style="font-weight:700">🥇 Primary</div>
+          <div style="font-size:12px;color:var(--muted)">Local 70B (best quality)</div>
+          <div style="font-size:11px;color:var(--green);margin-top:4px">Target: &lt;5s, GPU in-VRAM</div>
+        </div>
+        <div style="font-size:12px;color:var(--muted);text-align:center">→ if timeout/OOM/error →</div>
+        <div style="background:rgba(234,179,8,.1);border:1px solid var(--yellow);border-radius:8px;padding:12px 20px;min-width:200px;text-align:center">
+          <div style="font-weight:700">🥈 Secondary</div>
+          <div style="font-size:12px;color:var(--muted)">Local 7B (fast, lower quality)</div>
+          <div style="font-size:11px;color:var(--yellow);margin-top:4px">Target: &lt;2s, same machine</div>
+        </div>
+        <div style="font-size:12px;color:var(--muted);text-align:center">→ if model also fails →</div>
+        <div style="background:rgba(249,115,22,.1);border:1px solid var(--orange);border-radius:8px;padding:12px 20px;min-width:200px;text-align:center">
+          <div style="font-weight:700">🥉 Tertiary</div>
+          <div style="font-size:12px;color:var(--muted)">Cloud API (privacy fallback)</div>
+          <div style="font-size:11px;color:var(--orange);margin-top:4px">Only non-sensitive queries</div>
+        </div>
+        <div style="font-size:12px;color:var(--muted);text-align:center">→ if blocked by privacy →</div>
+        <div style="background:rgba(239,68,68,.1);border:1px solid var(--red);border-radius:8px;padding:12px 20px;min-width:160px;text-align:center">
+          <div style="font-weight:700">🛑 Graceful</div>
+          <div style="font-size:12px;color:var(--muted)">Degraded response</div>
+          <div style="font-size:11px;color:var(--red);margin-top:4px">"Try again shortly"</div>
+        </div>
+      </div>
+    </div>
+    <pre style="margin-top:20px"><code>import asyncio, time
+
+async def query_with_fallback(prompt, is_sensitive=True):
+    chain = [
+        {"model": "qwen3:72b",    "timeout": 8.0, "min_quality": 0.8},
+        {"model": "qwen3:7b",     "timeout": 3.0, "min_quality": 0.5},
+        {"model": "gpt-4o-mini",  "timeout": 5.0, "min_quality": 0.0, "cloud": True},
+    ]
+
+    for step in chain:
+        if step.get("cloud") and is_sensitive:
+            continue  # never send sensitive data to cloud
+        try:
+            response = await asyncio.wait_for(
+                call_model(step["model"], prompt),
+                timeout=step["timeout"]
+            )
+            quality = score_response(response)
+            if quality >= step["min_quality"]:
+                return {"response": response, "model": step["model"], "fallback_used": step != chain[0]}
+        except (asyncio.TimeoutError, RuntimeError) as e:
+            log_fallback_event(step["model"], str(e))
+            continue  # try next in chain
+
+    return {"response": "Service temporarily unavailable. Please try again.", "error": True}</code></pre>
+  </div>
+
+  <div class="grid-2">
+    <div class="card">
+      <div class="card-title">Fallback Triggers</div>
+      <table class="tbl">
+        <thead><tr><th>Trigger</th><th>Threshold</th><th>Action</th></tr></thead>
+        <tbody>
+          <tr><td>Timeout</td><td>&gt; 8 seconds</td><td>Skip to next model</td></tr>
+          <tr><td>GPU OOM</td><td>Any CUDA OOM error</td><td>Use CPU model or cloud</td></tr>
+          <tr><td>Queue depth</td><td>&gt; 50 requests</td><td>Reject or use secondary</td></tr>
+          <tr><td>Low quality score</td><td>&lt; 0.5 confidence</td><td>Re-run with larger model</td></tr>
+          <tr><td>Output too short</td><td>&lt; 10 tokens</td><td>Retry with higher temp</td></tr>
+          <tr><td>Repetition detected</td><td>Repeat penalty triggered</td><td>Retry with different seed</td></tr>
+          <tr><td>Context exceeded</td><td>n_ctx overflow</td><td>Summarize + retry</td></tr>
+        </tbody>
+      </table>
+    </div>
+    <div class="card">
+      <div class="card-title">Privacy Routing Logic</div>
+      <div class="card-sub">Route to cloud only when safe</div>
+      <table class="tbl">
+        <thead><tr><th>Data Type</th><th>Local Only?</th><th>Cloud OK?</th></tr></thead>
+        <tbody>
+          <tr><td>PII (names, emails, SSN)</td><td><span class="badge-pill green">✓ Local</span></td><td><span class="badge-pill red">Never</span></td></tr>
+          <tr><td>Internal docs / IP</td><td><span class="badge-pill green">✓ Local</span></td><td><span class="badge-pill red">Never</span></td></tr>
+          <tr><td>Financial records</td><td><span class="badge-pill green">✓ Local</span></td><td><span class="badge-pill red">Never</span></td></tr>
+          <tr><td>Code (proprietary)</td><td><span class="badge-pill green">✓ Local</span></td><td><span class="badge-pill yellow">With review</span></td></tr>
+          <tr><td>General knowledge Q&A</td><td><span class="badge-pill blue">Preferred</span></td><td><span class="badge-pill green">OK</span></td></tr>
+          <tr><td>Public web content</td><td><span class="badge-pill blue">Preferred</span></td><td><span class="badge-pill green">OK</span></td></tr>
+        </tbody>
+      </table>
+    </div>
+  </div>
+</div>
+
+<!-- ===== CONTEXT WINDOW MANAGEMENT ===== -->
+<div id="page-context" class="page">
+  <div class="page-header">
+    <h1>📏 Context Window Management</h1>
+    <p>What to do when conversations or documents exceed your model's context limit</p>
+  </div>
+
+  <div class="alert alert-yellow"><strong>The silent failure:</strong> When input exceeds context length, llama.cpp silently truncates from the beginning. You lose the system prompt. The model starts hallucinating. You get no error — just broken behavior.</div>
+
+  <div class="grid-2">
+    <div class="card">
+      <div class="card-title">Context Window by Model</div>
+      <table class="tbl">
+        <thead><tr><th>Model</th><th>Native Context</th><th>Extended (YaRN)</th><th>VRAM for 32K ctx</th></tr></thead>
+        <tbody>
+          <tr><td>Phi-4-mini</td><td><span class="badge-pill green">128K</span></td><td>—</td><td>+2GB</td></tr>
+          <tr><td>Qwen 3 7B/72B</td><td><span class="badge-pill green">128K</span></td><td>—</td><td>+4GB</td></tr>
+          <tr><td>Llama 3.3 8B</td><td><span class="badge-pill green">128K</span></td><td>—</td><td>+4GB</td></tr>
+          <tr><td>Mistral Small 3</td><td><span class="badge-pill yellow">32K</span></td><td>128K (YaRN)</td><td>+2GB</td></tr>
+          <tr><td>Mixtral 8x7B</td><td><span class="badge-pill yellow">32K</span></td><td>64K (YaRN)</td><td>+3GB</td></tr>
+          <tr><td>GPT-OSS 120B</td><td><span class="badge-pill green">128K</span></td><td>—</td><td>+8GB</td></tr>
+        </tbody>
+      </table>
+      <div style="margin-top:12px;font-size:12px;color:var(--muted)">⚠️ Larger context = more VRAM for KV cache. 128K context on 70B can add 8–16GB.</div>
+    </div>
+    <div class="card">
+      <div class="card-title">Strategy by Content Type</div>
+      <table class="tbl">
+        <thead><tr><th>Content Type</th><th>Strategy</th><th>Quality Loss</th></tr></thead>
+        <tbody>
+          <tr><td>Long conversation</td><td>Rolling summary + recent N turns</td><td><span class="badge-pill yellow">Low</span></td></tr>
+          <tr><td>Large document</td><td>RAG (chunk + retrieve)</td><td><span class="badge-pill green">Minimal</span></td></tr>
+          <tr><td>Codebase analysis</td><td>Map-reduce (summarize per file)</td><td><span class="badge-pill yellow">Low</span></td></tr>
+          <tr><td>Meeting transcript</td><td>Hierarchical summary (sections first)</td><td><span class="badge-pill yellow">Low</span></td></tr>
+          <tr><td>Real-time chat</td><td>Sliding window (keep last N tokens)</td><td><span class="badge-pill red">Medium</span></td></tr>
+          <tr><td>Long-form generation</td><td>Chunked generation with continuity prompt</td><td><span class="badge-pill yellow">Low</span></td></tr>
+        </tbody>
+      </table>
+    </div>
+  </div>
+
+  <div class="card">
+    <div class="card-title">Conversation Memory Manager</div>
+    <div class="card-sub">Rolling summary strategy — the most practical approach for multi-turn chat</div>
+    <pre><code>class ConversationManager:
+    def __init__(self, model, max_tokens=8192, summary_threshold=0.7):
+        self.model = model
+        self.max_tokens = max_tokens
+        self.summary_threshold = summary_threshold  # compress at 70% full
+        self.messages = []
+        self.summary = ""
+
+    def add_turn(self, role, content):
+        self.messages.append({"role": role, "content": content})
+
+        current_tokens = count_tokens(self.messages)
+        if current_tokens > self.max_tokens * self.summary_threshold:
+            self._compress()
+
+    def _compress(self):
+        # Keep last 3 exchanges (6 messages) + summarize the rest
+        recent = self.messages[-6:]
+        to_summarize = self.messages[:-6]
+
+        summary_prompt = f"""Previous summary: {self.summary}
+
+New conversation to summarize:
+{format_messages(to_summarize)}
+
+Write a concise summary preserving: key facts, decisions made, user preferences, open questions."""
+
+        new_summary = llm(summary_prompt, max_tokens=400)
+        self.summary = new_summary
+
+        # Rebuild: system context + summary + recent turns
+        self.messages = [
+            {"role": "system", "content": f"Context from earlier: {self.summary}"},
+            *recent
+        ]
+
+    def get_messages_for_inference(self):
+        return self.messages</code></pre>
+  </div>
+</div>
+
+<!-- ===== LICENSE RISK ===== -->
+<div id="page-license" class="page">
+  <div class="page-header">
+    <h1>⚖️ License Risk Checker</h1>
+    <p>Understand what you can actually do commercially before you build on a model</p>
+  </div>
+
+  <div class="alert alert-yellow"><strong>Common mistake:</strong> Developers see "open source" and assume commercial use is fine. Many models have restrictions on commercial use, redistribution, fine-tuned derivatives, or service scale. Check before you ship.</div>
+
+  <div class="card">
+    <div class="card-title">License Comparison Matrix</div>
+    <table class="tbl">
+      <thead><tr><th>Model</th><th>License</th><th>Commercial</th><th>Fine-tune & Redistribute</th><th>SaaS / API</th><th>Scale Limit</th><th>Risk</th></tr></thead>
+      <tbody>
+        <tr>
+          <td><strong>Qwen 3</strong></td><td>Apache 2.0</td>
+          <td><span class="badge-pill green">✓ Yes</span></td>
+          <td><span class="badge-pill green">✓ Yes</span></td>
+          <td><span class="badge-pill green">✓ Yes</span></td>
+          <td>None</td>
+          <td><span class="badge-pill green">Low</span></td>
+        </tr>
+        <tr>
+          <td><strong>Phi-4-mini</strong></td><td>MIT</td>
+          <td><span class="badge-pill green">✓ Yes</span></td>
+          <td><span class="badge-pill green">✓ Yes</span></td>
+          <td><span class="badge-pill green">✓ Yes</span></td>
+          <td>None</td>
+          <td><span class="badge-pill green">Low</span></td>
+        </tr>
+        <tr>
+          <td><strong>Mistral Small 3</strong></td><td>Apache 2.0</td>
+          <td><span class="badge-pill green">✓ Yes</span></td>
+          <td><span class="badge-pill green">✓ Yes</span></td>
+          <td><span class="badge-pill green">✓ Yes</span></td>
+          <td>None</td>
+          <td><span class="badge-pill green">Low</span></td>
+        </tr>
+        <tr>
+          <td><strong>Gemma 3</strong></td><td>Gemma Terms</td>
+          <td><span class="badge-pill yellow">Conditional</span></td>
+          <td><span class="badge-pill yellow">Restricted</span></td>
+          <td><span class="badge-pill yellow">Allowed</span></td>
+          <td>None stated</td>
+          <td><span class="badge-pill yellow">Medium</span></td>
+        </tr>
+        <tr>
+          <td><strong>Llama 3.3/4</strong></td><td>Meta Community</td>
+          <td><span class="badge-pill yellow">Conditional</span></td>
+          <td><span class="badge-pill yellow">Must include notice</span></td>
+          <td><span class="badge-pill yellow">Allowed</span></td>
+          <td>700M MAU</td>
+          <td><span class="badge-pill yellow">Medium</span></td>
+        </tr>
+        <tr>
+          <td><strong>GPT-OSS</strong></td><td>Apache 2.0</td>
+          <td><span class="badge-pill green">✓ Yes</span></td>
+          <td><span class="badge-pill green">✓ Yes</span></td>
+          <td><span class="badge-pill green">✓ Yes</span></td>
+          <td>None</td>
+          <td><span class="badge-pill green">Low</span></td>
+        </tr>
+        <tr>
+          <td><strong>DeepSeek V3</strong></td><td>DeepSeek License</td>
+          <td><span class="badge-pill yellow">Conditional</span></td>
+          <td><span class="badge-pill red">Restricted</span></td>
+          <td><span class="badge-pill yellow">Allowed</span></td>
+          <td>None stated</td>
+          <td><span class="badge-pill orange">Medium-High</span></td>
+        </tr>
+        <tr>
+          <td><strong>HuggingFace fine-tunes</strong></td><td>Varies!</td>
+          <td><span class="badge-pill red">Check each</span></td>
+          <td><span class="badge-pill red">Check each</span></td>
+          <td><span class="badge-pill red">Check each</span></td>
+          <td>Varies</td>
+          <td><span class="badge-pill red">High</span></td>
+        </tr>
+      </tbody>
+    </table>
+  </div>
+
+  <div class="grid-2">
+    <div class="card">
+      <div class="card-title">License Risk Checker</div>
+      <div class="form-group"><label>Your Use Case</label>
+        <select id="lic-usecase">
+          <option>Internal tool (team only)</option>
+          <option>Customer-facing SaaS product</option>
+          <option>Reselling fine-tuned model weights</option>
+          <option>Open-source project</option>
+          <option>Enterprise deployment (&gt;700M users)</option>
+        </select>
+      </div>
+      <div class="form-group"><label>Model</label>
+        <select id="lic-model">
+          <option>Qwen 3 (Apache 2.0)</option>
+          <option>Llama 4 (Meta Community)</option>
+          <option>Gemma 3 (Gemma Terms)</option>
+          <option>DeepSeek V3 (DeepSeek License)</option>
+          <option>HuggingFace fine-tune</option>
+        </select>
+      </div>
+      <button class="btn" onclick="checkLicense()">Check Risk</button>
+      <div id="lic-result" style="margin-top:14px"></div>
+    </div>
+    <div class="card">
+      <div class="card-title">Due Diligence Checklist</div>
+      <ul class="checklist">
+        <li><span class="check-icon ok">✓</span>Read the full license (not just the name)</li>
+        <li><span class="check-icon ok">✓</span>Check if fine-tuned derivatives have same license</li>
+        <li><span class="check-icon ok">✓</span>Verify MAU / scale restrictions don't apply</li>
+        <li><span class="check-icon ok">✓</span>Check attribution requirements (copyright notice)</li>
+        <li><span class="check-icon ok">✓</span>Verify use case not in prohibited uses list</li>
+        <li><span class="check-icon ok">✓</span>Check if your country has additional restrictions</li>
+        <li><span class="check-icon warn">!</span>Get legal review for any commercial deployment</li>
+        <li><span class="check-icon warn">!</span>HuggingFace community models: verify base model license</li>
+      </ul>
+    </div>
+  </div>
+</div>
+
+<!-- ===== LAYMAN'S GUIDE ===== -->
+<div id="page-layman" class="page">
+  <div class="page-header">
+    <h1>🙋 Plain English Guide for Decision Makers</h1>
+    <p>No technical background needed. This section explains everything you need to make a smart AI decision for your business — in plain language.</p>
+  </div>
+
+  <div class="alert alert-blue">
+    <strong>Who this is for:</strong> Business owners, managers, and executives who need to make decisions about AI without having to become engineers. If words like "VRAM", "quantization", or "vector database" mean nothing to you — this section is written for you.
+  </div>
+
+  <!-- ANALOGY SECTION -->
+  <div class="card">
+    <div class="card-title">🏠 The Best Analogy: Hiring a Staff Member vs. Using a Call Centre</div>
+    <div class="card-sub">Understanding Local LLM vs. Cloud AI in terms you already know</div>
+    <div class="grid-2">
+      <div style="background:rgba(99,102,241,.08);border:1px solid var(--accent);border-radius:10px;padding:18px">
+        <div style="font-size:18px;margin-bottom:8px">🏢 <strong>Cloud AI (e.g. ChatGPT, Claude API)</strong></div>
+        <div style="font-size:13px;margin-bottom:12px;color:var(--muted)">Like using an outsourced call centre</div>
+        <ul style="font-size:13px;line-height:1.9;padding-left:16px">
+          <li>Very capable, available 24/7</li>
+          <li>You pay every time you use it (per call)</li>
+          <li><strong>Everything you tell them leaves your building</strong></li>
+          <li>They might change their prices or rules at any time</li>
+          <li>You cannot train them on your specific way of working</li>
+          <li>No setup cost — just start using it</li>
+        </ul>
+      </div>
+      <div style="background:rgba(34,197,94,.08);border:1px solid var(--green);border-radius:10px;padding:18px">
+        <div style="font-size:18px;margin-bottom:8px">🏠 <strong>Local LLM</strong></div>
+        <div style="font-size:13px;margin-bottom:12px;color:var(--muted)">Like hiring a permanent staff member</div>
+        <ul style="font-size:13px;line-height:1.9;padding-left:16px">
+          <li>Higher upfront cost (hardware = their desk + computer)</li>
+          <li>No per-use cost after setup</li>
+          <li><strong>Everything stays in your building — always</strong></li>
+          <li>You control how they work, what they know, and who they talk to</li>
+          <li>You can train them specifically on your business</li>
+          <li>Takes time and effort to set up properly</li>
+        </ul>
+      </div>
+    </div>
+    <div style="margin-top:14px;padding:12px 16px;background:var(--surface2);border-radius:8px;font-size:13px">
+      💡 <strong>Simple rule:</strong> If you handle sensitive information (medical, legal, financial, customer data), think of local AI like your own staff member — your data never leaves the building. If you just need fast, general help and privacy isn't critical, the call centre (cloud API) works fine.
+    </div>
+  </div>
+
+  <!-- THE 5 QUESTIONS -->
+  <div class="card">
+    <div class="card-title">❓ The 5 Questions That Drive Your Decision</div>
+    <div class="card-sub">Answer these honestly — your answers point to the right choice</div>
+    <div style="display:flex;flex-direction:column;gap:16px;margin-top:8px">
+
+      <div style="background:var(--surface2);border-radius:10px;padding:16px">
+        <div style="font-weight:700;font-size:14px;margin-bottom:8px">1. Is your data sensitive?</div>
+        <div class="grid-2">
+          <div style="padding:10px 14px;background:rgba(34,197,94,.08);border-radius:8px;font-size:12px">
+            <strong style="color:var(--green)">YES → Local LLM</strong><br>
+            Customer records, health info, legal documents, financial data, trade secrets, employee data. You can't afford for this to leave your premises.
+          </div>
+          <div style="padding:10px 14px;background:rgba(99,102,241,.08);border-radius:8px;font-size:12px">
+            <strong style="color:var(--accent)">NO → Either works</strong><br>
+            General Q&A, public info, marketing content, research. Cloud AI is simpler and cheaper to start.
+          </div>
+        </div>
+      </div>
+
+      <div style="background:var(--surface2);border-radius:10px;padding:16px">
+        <div style="font-weight:700;font-size:14px;margin-bottom:8px">2. How often will you use it?</div>
+        <div class="grid-2">
+          <div style="padding:10px 14px;background:rgba(34,197,94,.08);border-radius:8px;font-size:12px">
+            <strong style="color:var(--green)">HEAVILY (daily, all day) → Local LLM</strong><br>
+            Cloud AI bills add up fast. At heavy use, a local model pays for itself within months.
+          </div>
+          <div style="padding:10px 14px;background:rgba(99,102,241,.08);border-radius:8px;font-size:12px">
+            <strong style="color:var(--accent)">OCCASIONALLY → Cloud API</strong><br>
+            Pay-as-you-go beats a big hardware investment if you only need it a few times a week.
+          </div>
+        </div>
+      </div>
+
+      <div style="background:var(--surface2);border-radius:10px;padding:16px">
+        <div style="font-weight:700;font-size:14px;margin-bottom:8px">3. Do you need it to know YOUR business specifically?</div>
+        <div class="grid-2">
+          <div style="padding:10px 14px;background:rgba(34,197,94,.08);border-radius:8px;font-size:12px">
+            <strong style="color:var(--green)">YES → Local LLM + RAG</strong><br>
+            You can connect it to your documents, products, policies, and client history. It answers like someone who actually knows your business.
+          </div>
+          <div style="padding:10px 14px;background:rgba(99,102,241,.08);border-radius:8px;font-size:12px">
+            <strong style="color:var(--accent)">NO → Cloud API</strong><br>
+            For general tasks (write me an email, summarise this article), cloud models are already excellent.
+          </div>
+        </div>
+      </div>
+
+      <div style="background:var(--surface2);border-radius:10px;padding:16px">
+        <div style="font-weight:700;font-size:14px;margin-bottom:8px">4. Can you afford the setup?</div>
+        <div class="grid-2">
+          <div style="padding:10px 14px;background:rgba(34,197,94,.08);border-radius:8px;font-size:12px">
+            <strong style="color:var(--green)">YES → Local LLM</strong><br>
+            Hardware $2,000–$10,000. A good starting setup is a modern Mac with 32GB+ memory (~$3,500) or a PC with a high-end graphics card.
+          </div>
+          <div style="padding:10px 14px;background:rgba(234,179,8,.08);border-radius:8px;font-size:12px">
+            <strong style="color:var(--yellow)">TIGHT BUDGET → Start cloud, plan local</strong><br>
+            Start with a cloud API subscription ($20–$200/month), prove the value, then invest in local hardware once you know your use case.
+          </div>
+        </div>
+      </div>
+
+      <div style="background:var(--surface2);border-radius:10px;padding:16px">
+        <div style="font-weight:700;font-size:14px;margin-bottom:8px">5. Do you have (or can you access) someone technical?</div>
+        <div class="grid-2">
+          <div style="padding:10px 14px;background:rgba(34,197,94,.08);border-radius:8px;font-size:12px">
+            <strong style="color:var(--green)">YES → Local LLM is viable</strong><br>
+            You need someone to set it up, maintain it, and connect it to your data. Once done, it mostly runs itself.
+          </div>
+          <div style="padding:10px 14px;background:rgba(239,68,68,.08);border-radius:8px;font-size:12px">
+            <strong style="color:var(--red)">NO → Cloud first, then hire/contract</strong><br>
+            Don't start with local LLM if no one can maintain it. A broken AI system is worse than none.
+          </div>
+        </div>
+      </div>
+
+    </div>
+  </div>
+
+  <!-- PLAIN ENGLISH GLOSSARY -->
+  <div class="card">
+    <div class="card-title">📖 Plain English Glossary</div>
+    <div class="card-sub">The terms your technical team will use — and what they actually mean</div>
+    <table class="tbl">
+      <thead><tr><th>Technical Term</th><th>What It Actually Means</th><th>Why It Matters to You</th></tr></thead>
+      <tbody>
+        <tr><td><strong>LLM</strong></td><td>The AI "brain" — software trained on enormous amounts of text that can read, write, and reason</td><td>This is what you're buying/building — the core engine</td></tr>
+        <tr><td><strong>Local LLM</strong></td><td>The AI brain runs on computers you own, in your office or server room</td><td>Your data never leaves — critical for privacy</td></tr>
+        <tr><td><strong>Parameters / Billions</strong></td><td>How big the brain is. 70B = a very large, capable brain. 7B = smaller, faster, less accurate</td><td>Bigger = better quality but needs more expensive hardware</td></tr>
+        <tr><td><strong>VRAM / GPU</strong></td><td>The special memory and processor inside a graphics card that runs AI much faster than a normal computer chip</td><td>Determines which AI models you can run and how fast</td></tr>
+        <tr><td><strong>RAG</strong></td><td>"Retrieval-Augmented Generation" — connecting the AI to your documents so it can answer questions about your business specifically</td><td>This is what makes AI useful for your specific situation, not just general knowledge</td></tr>
+        <tr><td><strong>Quantization</strong></td><td>Shrinking the AI model to use less memory, with a slight quality trade-off (like compressing a photo — still recognisable but less sharp)</td><td>Lets you run bigger, better models on smaller hardware</td></tr>
+        <tr><td><strong>Fine-tuning</strong></td><td>Training the AI specifically on your data, your style, your terminology — like teaching a new hire about how your company works</td><td>Makes the AI significantly better at your specific tasks</td></tr>
+        <tr><td><strong>Hallucination</strong></td><td>When the AI confidently states something that is completely wrong or made up</td><td>Critical risk — always verify AI outputs in business-critical contexts</td></tr>
+        <tr><td><strong>Context window</strong></td><td>How much information the AI can "hold in its head" at once — like short-term memory</td><td>If your documents are very long, you need a model with a bigger context window</td></tr>
+        <tr><td><strong>Inference</strong></td><td>The moment the AI actually generates a response — "running" the model</td><td>Faster inference = quicker answers for your team</td></tr>
+        <tr><td><strong>Open source / Open weight</strong></td><td>The AI model is freely available to download and run — like free software</td><td>No licensing fees; you own your deployment</td></tr>
+        <tr><td><strong>Apache 2.0 / MIT</strong></td><td>Types of free licences that allow commercial use — the safest licences for businesses</td><td>Check this before deploying any model commercially</td></tr>
+        <tr><td><strong>Ollama / LM Studio</strong></td><td>Software that makes it easy to download and run local AI models (like an app store for AI models)</td><td>The simplest way to get started with local AI</td></tr>
+        <tr><td><strong>Vector database</strong></td><td>A special filing system that stores your documents in a way the AI can search through very quickly</td><td>Required for RAG — connects your documents to the AI</td></tr>
+      </tbody>
+    </table>
+  </div>
+
+  <!-- NON-TECHNICAL DECISION SCORECARD -->
+  <div class="card">
+    <div class="card-title">📊 Quick Decision Scorecard</div>
+    <div class="card-sub">Tick what applies to you — the score tells you where to start</div>
+    <div id="scorecard-items" style="margin-top:8px">
+      <div style="display:grid;grid-template-columns:1fr 1fr;gap:8px">
+        <label style="display:flex;align-items:center;gap:10px;padding:10px 14px;background:var(--surface2);border-radius:8px;cursor:pointer;font-size:13px">
+          <input type="checkbox" onchange="calcScore()" style="width:auto;background:none;border:none"> We handle sensitive customer/employee/financial data
+        </label>
+        <label style="display:flex;align-items:center;gap:10px;padding:10px 14px;background:var(--surface2);border-radius:8px;cursor:pointer;font-size:13px">
+          <input type="checkbox" onchange="calcScore()" style="width:auto;background:none;border:none"> We use (or plan to use) AI heavily every day
+        </label>
+        <label style="display:flex;align-items:center;gap:10px;padding:10px 14px;background:var(--surface2);border-radius:8px;cursor:pointer;font-size:13px">
+          <input type="checkbox" onchange="calcScore()" style="width:auto;background:none;border:none"> We need AI to know our products, policies, or documents
+        </label>
+        <label style="display:flex;align-items:center;gap:10px;padding:10px 14px;background:var(--surface2);border-radius:8px;cursor:pointer;font-size:13px">
+          <input type="checkbox" onchange="calcScore()" style="width:auto;background:none;border:none"> We operate in a regulated industry (health, legal, finance)
+        </label>
+        <label style="display:flex;align-items:center;gap:10px;padding:10px 14px;background:var(--surface2);border-radius:8px;cursor:pointer;font-size:13px">
+          <input type="checkbox" onchange="calcScore()" style="width:auto;background:none;border:none"> We have a budget of $3,000+ for hardware
+        </label>
+        <label style="display:flex;align-items:center;gap:10px;padding:10px 14px;background:var(--surface2);border-radius:8px;cursor:pointer;font-size:13px">
+          <input type="checkbox" onchange="calcScore()" style="width:auto;background:none;border:none"> We have access to technical staff or a contractor
+        </label>
+        <label style="display:flex;align-items:center;gap:10px;padding:10px 14px;background:var(--surface2);border-radius:8px;cursor:pointer;font-size:13px">
+          <input type="checkbox" onchange="calcScore()" style="width:auto;background:none;border:none"> We worry about vendor lock-in or price changes
+        </label>
+        <label style="display:flex;align-items:center;gap:10px;padding:10px 14px;background:var(--surface2);border-radius:8px;cursor:pointer;font-size:13px">
+          <input type="checkbox" onchange="calcScore()" style="width:auto;background:none;border:none"> We want to customise AI to our specific business style
+        </label>
+      </div>
+    </div>
+    <div id="scorecard-result" style="margin-top:14px;padding:14px 16px;background:var(--surface2);border-radius:8px;font-size:13px;color:var(--muted)">
+      Tick the boxes above to get your personalised recommendation.
+    </div>
+  </div>
+
+  <!-- WHAT CAN GO WRONG -->
+  <div class="card">
+    <div class="card-title">⚠️ The 6 Mistakes Non-Technical Leaders Make</div>
+    <div class="card-sub">Learn these before you start — they cost businesses months and money</div>
+    <table class="tbl">
+      <thead><tr><th>#</th><th>Mistake</th><th>What Happens</th><th>How to Avoid It</th></tr></thead>
+      <tbody>
+        <tr>
+          <td>1</td>
+          <td><strong>Skipping the test phase</strong></td>
+          <td>You deploy AI that sounds confident but gives wrong answers for your specific use case</td>
+          <td>Build a list of 50 real questions with known correct answers. Test every model before deploying.</td>
+        </tr>
+        <tr>
+          <td>2</td>
+          <td><strong>Trusting every AI output</strong></td>
+          <td>AI makes up facts, names, prices, or policies — and someone acts on it</td>
+          <td>Always have a human review AI outputs for anything consequential (contracts, medical, legal, financial)</td>
+        </tr>
+        <tr>
+          <td>3</td>
+          <td><strong>Not connecting it to your data</strong></td>
+          <td>AI gives generic answers that don't apply to your business, products, or clients</td>
+          <td>Connect your documents, manuals, and policies (this is what RAG does — ask your technical team)</td>
+        </tr>
+        <tr>
+          <td>4</td>
+          <td><strong>Buying hardware before knowing your use case</strong></td>
+          <td>You spend $8,000 on a server that doesn't fit your actual task</td>
+          <td>Start with cloud AI for 1–3 months to understand your real usage pattern, then buy hardware</td>
+        </tr>
+        <tr>
+          <td>5</td>
+          <td><strong>No plan for when it breaks</strong></td>
+          <td>Local AI goes down, business grinds to a halt, no backup exists</td>
+          <td>Always have a fallback (small backup model or cloud API) for critical workflows</td>
+        </tr>
+        <tr>
+          <td>6</td>
+          <td><strong>Ignoring the licence</strong></td>
+          <td>You deploy an AI model commercially and discover it prohibits your use case</td>
+          <td>Check the License Risk tab in this dashboard before deploying any model. Prefer Apache 2.0 or MIT.</td>
+        </tr>
+      </tbody>
+    </table>
+  </div>
+
+  <!-- 3-STEP STARTING PLAN -->
+  <div class="card">
+    <div class="card-title">🗺️ Your 3-Step Starting Plan (No Technical Knowledge Needed)</div>
+    <div class="grid-3">
+      <div style="background:rgba(99,102,241,.08);border:1px solid var(--accent);border-radius:10px;padding:16px;text-align:center">
+        <div style="font-size:32px">📋</div>
+        <div style="font-weight:800;font-size:16px;margin:8px 0">Step 1: Define the Job</div>
+        <div style="font-size:12px;color:var(--muted);line-height:1.8">Write down exactly what you want AI to do. Be specific. "Help with customer emails" is too vague. "Draft replies to product return requests using our 30-day refund policy" is specific enough to build on. One job to start — not ten.</div>
+      </div>
+      <div style="background:rgba(34,197,94,.08);border:1px solid var(--green);border-radius:10px;padding:16px;text-align:center">
+        <div style="font-size:32px">🧪</div>
+        <div style="font-weight:800;font-size:16px;margin:8px 0">Step 2: Test Before You Commit</div>
+        <div style="font-size:12px;color:var(--muted);line-height:1.8">Use Claude.ai, ChatGPT, or a free Ollama model for 4 weeks. Collect 20 real examples of the task. Note where AI helps and where it fails. This tells you exactly what you need before spending money on hardware or setup.</div>
+      </div>
+      <div style="background:rgba(234,179,8,.08);border:1px solid var(--yellow);border-radius:10px;padding:16px;text-align:center">
+        <div style="font-size:32px">⚙️</div>
+        <div style="font-weight:800;font-size:16px;margin:8px 0">Step 3: Invest Based on Evidence</div>
+        <div style="font-size:12px;color:var(--muted);line-height:1.8">After 4 weeks you'll know: which tasks AI actually helps with, your real usage volume, and whether privacy concerns matter. Now you can make a hardware or vendor decision based on facts, not guesswork.</div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- ===== SME SOURCES ===== -->
+<div id="page-sme-sources" class="page">
+  <div class="page-header">
+    <h1>🔬 SME Research Sources & Gap Analysis</h1>
+    <p>The major 2025–2026 AI research reports and what the Deloitte findings are missing for smaller businesses</p>
+  </div>
+
+  <div class="alert alert-yellow">
+    <strong>Important context:</strong> Deloitte surveyed 3,235 <em>director-to-C-suite leaders</em> at large enterprises across 24 countries. Most findings describe what companies with $500M+ in revenue are doing. SMEs face different constraints, risks, and timelines.
+  </div>
+
+  <!-- SOURCES TABLE -->
+  <div class="card">
+    <div class="card-title">📚 Major 2025–2026 AI Reports You Should Have on Your Radar</div>
+    <table class="tbl">
+      <thead><tr><th>Source</th><th>Focus</th><th>SME Relevance</th><th>Key Finding for Local LLM</th><th>Link</th></tr></thead>
+      <tbody>
+        <tr>
+          <td><strong>Deloitte AI Institute 2026</strong><br><span style="color:var(--muted);font-size:11px">3,235 leaders, 24 countries</span></td>
+          <td>Enterprise AI adoption</td>
+          <td><span class="badge-pill yellow">Medium</span></td>
+          <td>83% say sovereign AI is strategic; 3 in 5 building with local vendors</td>
+          <td><a href="https://www.deloitte.com/us/en/about/press-room/state-of-ai-report-2026.html" target="_blank">→ Report</a></td>
+        </tr>
+        <tr>
+          <td><strong>McKinsey State of AI 2026</strong><br><span style="color:var(--muted);font-size:11px">Annual enterprise survey</span></td>
+          <td>Enterprise value & scaling</td>
+          <td><span class="badge-pill yellow">Medium</span></td>
+          <td>Large orgs 2× more likely to scale AI than small ones. Only 6% are "high performers" with >5% EBIT from AI</td>
+          <td><a href="https://www.mckinsey.com/capabilities/quantumblack/our-insights/the-state-of-ai" target="_blank">→ Report</a></td>
+        </tr>
+        <tr>
+          <td><strong>Stanford HAI AI Index 2026</strong><br><span style="color:var(--muted);font-size:11px">Academic research synthesis</span></td>
+          <td>Technical + societal trends</td>
+          <td><span class="badge-pill green">High</span></td>
+          <td>Model transparency scores dropping (avg 40/100). GenAI value to US consumers = $172B/yr. Adoption 53% of population</td>
+          <td><a href="https://hai.stanford.edu/ai-index/2026-ai-index-report" target="_blank">→ Report</a></td>
+        </tr>
+        <tr>
+          <td><strong>Gartner AI Predictions 2026</strong><br><span style="color:var(--muted);font-size:11px">Analyst firm, enterprise focus</span></td>
+          <td>Technology adoption curves</td>
+          <td><span class="badge-pill yellow">Medium</span></td>
+          <td>40% of enterprise apps will have AI agents by end 2026. 80% of CEOs say AI forces operational overhauls</td>
+          <td><a href="https://www.gartner.com/en/articles/strategic-predictions-for-2026" target="_blank">→ Report</a></td>
+        </tr>
+        <tr>
+          <td><strong>IBM Institute for Business Value 2026</strong><br><span style="color:var(--muted);font-size:11px">1,000 C-suite, 8,500 employees/consumers</span></td>
+          <td>Business value & integration</td>
+          <td><span class="badge-pill green">High</span></td>
+          <td>68% of executives fear AI will fail due to poor integration with core business. AI investment to surge 150% by 2030</td>
+          <td><a href="https://newsroom.ibm.com/2026-01-19-ibm-study-ai-poised-to-drive-smarter-business-growth-through-2030" target="_blank">→ Report</a></td>
+        </tr>
+        <tr>
+          <td><strong>WEF AI Sovereignty Report 2026</strong><br><span style="color:var(--muted);font-size:11px">Policy & geopolitics focus</span></td>
+          <td>Sovereign AI & regulation</td>
+          <td><span class="badge-pill green">High</span></td>
+          <td>AI sovereignty is now a national competitiveness issue. Talent shortage + compute costs are top deployment barriers</td>
+          <td><a href="https://www3.weforum.org/docs/WEF_Rethinking_AI_Sovereignty_Pathways_to_Competitiveness_through_Strategic_Investments_2026.pdf" target="_blank">→ Report</a></td>
+        </tr>
+        <tr>
+          <td><strong>WEF Future of Jobs 2025</strong><br><span style="color:var(--muted);font-size:11px">Workforce impact study</span></td>
+          <td>Jobs & workforce disruption</td>
+          <td><span class="badge-pill green">High</span></td>
+          <td>Labor displacement risk moved from 30th to 5th in long-term global risks. SMEs disproportionately affected</td>
+          <td><a href="https://reports.weforum.org/docs/WEF_Four_Futures_for_Jobs_in_the_New_Economy_AI_and_Talent_in_2030_2025.pdf" target="_blank">→ Report</a></td>
+        </tr>
+      </tbody>
+    </table>
+  </div>
+
+  <!-- GAP ANALYSIS -->
+  <div class="card">
+    <div class="card-title">🕳️ What the Deloitte Report is Missing for SMEs</div>
+    <div class="card-sub">Deloitte's findings are accurate — but they describe large enterprises. Here's what those findings don't tell you as a smaller business.</div>
+    <div style="display:flex;flex-direction:column;gap:12px;margin-top:12px">
+
+      <div style="background:var(--surface2);border-radius:10px;padding:16px;border-left:3px solid var(--red)">
+        <div style="font-weight:700;font-size:13px;margin-bottom:6px">❌ Gap 1: No SME-specific data at all</div>
+        <div style="font-size:12px;color:var(--muted);line-height:1.7">
+          Deloitte surveyed director-to-C-suite at large enterprises. A solo founder or 20-person business has no benchmark here. <strong>What you actually need:</strong> SME adoption rates, budget ranges that work for small teams, and realistic timelines. McKinsey data shows large orgs are 2× more likely to successfully scale AI — the reasons why (dedicated AI teams, larger budgets, existing data infrastructure) are exactly the constraints SMEs need to plan around.
+        </div>
+      </div>
+
+      <div style="background:var(--surface2);border-radius:10px;padding:16px;border-left:3px solid var(--red)">
+        <div style="font-weight:700;font-size:13px;margin-bottom:6px">❌ Gap 2: No data on what happens when AI outputs are wrong</div>
+        <div style="font-size:12px;color:var(--muted);line-height:1.7">
+          None of the 2026 reports adequately cover hallucination risk in real business contexts. For a large enterprise, one bad AI output is a rounding error. For an SME with 5 staff, a hallucinated legal clause in a contract or a wrong medical dosage recommendation is potentially catastrophic. <strong>What's missing:</strong> liability frameworks, insurance implications, and industry-specific error rate data.
+        </div>
+      </div>
+
+      <div style="background:var(--surface2);border-radius:10px;padding:16px;border-left:3px solid var(--orange)">
+        <div style="font-weight:700;font-size:13px;margin-bottom:6px">⚠️ Gap 3: Skills gap is not quantified for SMEs</div>
+        <div style="font-size:12px;color:var(--muted);line-height:1.7">
+          WEF and Gartner mention talent shortages broadly. But no report tells you: "An SME needs approximately X hours/week of technical maintenance for a local LLM setup." IBM's 68% integration failure concern is particularly relevant — most SMEs lack the internal staff to properly integrate AI. <strong>What you need:</strong> a realistic estimate of ongoing technical time and the cost of outsourcing it.
+        </div>
+      </div>
+
+      <div style="background:var(--surface2);border-radius:10px;padding:16px;border-left:3px solid var(--orange)">
+        <div style="font-weight:700;font-size:13px;margin-bottom:6px">⚠️ Gap 4: Data quality problem is ignored</div>
+        <div style="font-size:12px;color:var(--muted);line-height:1.7">
+          RAG only works if your documents are organised and current. Large enterprises have document management systems. Most SMEs have files scattered across email, Google Drive, and someone's desktop. <strong>What's missing:</strong> a realistic assessment of data readiness before AI investment. Stanford HAI notes AI performance depends heavily on training/retrieval data quality — but no report addresses the SME data preparation cost.
+        </div>
+      </div>
+
+      <div style="background:var(--surface2);border-radius:10px;padding:16px;border-left:3px solid var(--orange)">
+        <div style="font-weight:700;font-size:13px;margin-bottom:6px">⚠️ Gap 5: Vendor dependency risk is understated</div>
+        <div style="font-size:12px;color:var(--muted);line-height:1.7">
+          Deloitte frames sovereign AI as a geopolitical/national issue. But for SMEs, the practical risk is simpler: OpenAI raises prices, deprecates a model, or changes terms — and your business process breaks. Stanford HAI's finding that model transparency scores dropped to 40/100 means cloud AI providers are becoming <em>less</em> transparent, not more. Local LLMs eliminate this dependency entirely.
+        </div>
+      </div>
+
+      <div style="background:var(--surface2);border-radius:10px;padding:16px;border-left:3px solid var(--yellow)">
+        <div style="font-weight:700;font-size:13px;margin-bottom:6px">ℹ️ Gap 6: Industry-specific compliance is not broken out</div>
+        <div style="font-size:12px;color:var(--muted);line-height:1.7">
+          Deloitte covers EU AI Act compliance at a high level. But a dental clinic, a legal firm, and an accounting practice each face entirely different compliance requirements when deploying AI (HIPAA, attorney-client privilege, financial services regulations). <strong>What's missing:</strong> industry-specific compliance checklists for SMEs deploying local models.
+        </div>
+      </div>
+
+      <div style="background:var(--surface2);border-radius:10px;padding:16px;border-left:3px solid var(--yellow)">
+        <div style="font-weight:700;font-size:13px;margin-bottom:6px">ℹ️ Gap 7: ROI timeline for small organisations</div>
+        <div style="font-size:12px;color:var(--muted);line-height:1.7">
+          Gartner and McKinsey discuss ROI at enterprise scale. IBM says 79% of executives expect AI to contribute to revenue by 2030 — but 24% have no idea how. For an SME spending $5,000 on hardware and $2,000 on setup, the real question is: "Will I recover that in 12 months?" The Cost Analysis tab in this dashboard answers this — none of the major reports do.
+        </div>
+      </div>
+
+    </div>
+  </div>
+
+  <!-- CROSS-REPORT SYNTHESIS -->
+  <div class="card">
+    <div class="card-title">🎯 What All Reports Agree On (Cross-Report Synthesis)</div>
+    <div class="card-sub">When multiple independent research bodies agree, it's worth treating as fact</div>
+    <table class="tbl">
+      <thead><tr><th>Finding</th><th>Who Agrees</th><th>Implication for Your Local LLM Decision</th></tr></thead>
+      <tbody>
+        <tr>
+          <td>The gap between AI adoption intent and actual production deployment is large</td>
+          <td><span class="badge-pill blue">Deloitte</span> <span class="badge-pill cyan">McKinsey</span> <span class="badge-pill green">Gartner</span></td>
+          <td>Build evaluation and testing before you scale. Don't deploy without knowing your success metrics.</td>
+        </tr>
+        <tr>
+          <td>Sovereignty and data control are now strategic priorities, not just technical preferences</td>
+          <td><span class="badge-pill blue">Deloitte</span> <span class="badge-pill orange">WEF</span></td>
+          <td>Local LLMs are no longer a niche choice — they're aligned with the direction most enterprises are moving.</td>
+        </tr>
+        <tr>
+          <td>Integration failure (not model quality) is the most common reason AI projects fail</td>
+          <td><span class="badge-pill cyan">McKinsey</span> <span class="badge-pill yellow">IBM</span></td>
+          <td>Spend as much time connecting AI to your actual workflows as selecting the model itself.</td>
+        </tr>
+        <tr>
+          <td>Agentic AI (AI that takes actions, not just answers questions) is the next major wave</td>
+          <td><span class="badge-pill blue">Deloitte</span> <span class="badge-pill green">Gartner</span> <span class="badge-pill cyan">McKinsey</span></td>
+          <td>Local LLMs with agentic capability (Fallback Chain tab) give you agents without data leaving your premises.</td>
+        </tr>
+        <tr>
+          <td>Model transparency is declining — providers are disclosing less, not more</td>
+          <td><span class="badge-pill red">Stanford HAI</span></td>
+          <td>Open-weight local models (Apache 2.0) are the only way to fully understand what you're deploying.</td>
+        </tr>
+        <tr>
+          <td>Most organisations are at surface-level AI use — not transformative use</td>
+          <td><span class="badge-pill blue">Deloitte</span> <span class="badge-pill cyan">McKinsey</span></td>
+          <td>The opportunity is not in using AI — it's in using it deeply. RAG + fine-tuning is what separates surface from transformative.</td>
+        </tr>
+      </tbody>
+    </table>
+  </div>
+
+  <div class="card">
+    <div class="card-title">📋 SME-Specific Action Checklist (Not in Any Report)</div>
+    <div class="card-sub">Derived from cross-referencing all sources and filling the gaps they leave for smaller businesses</div>
+    <div class="grid-2">
+      <div>
+        <div style="font-weight:700;margin-bottom:8px;color:var(--accent2)">Before You Buy Anything</div>
+        <ul class="checklist">
+          <li><span class="check-icon warn">!</span>Audit your documents — are they organised enough for RAG?</li>
+          <li><span class="check-icon warn">!</span>Identify your highest-value, lowest-risk use case first</li>
+          <li><span class="check-icon warn">!</span>Calculate your real cloud API spend over 12 months</li>
+          <li><span class="check-icon warn">!</span>Confirm compliance requirements for your industry</li>
+          <li><span class="check-icon warn">!</span>Identify who will maintain the system (staff or contractor)</li>
+        </ul>
+      </div>
+      <div>
+        <div style="font-weight:700;margin-bottom:8px;color:var(--accent2)">Before You Go Live</div>
+        <ul class="checklist">
+          <li><span class="check-icon warn">!</span>Build 50 test questions with known answers (Eval tab)</li>
+          <li><span class="check-icon warn">!</span>Set a human review policy for consequential outputs</li>
+          <li><span class="check-icon warn">!</span>Confirm the model licence allows your commercial use</li>
+          <li><span class="check-icon warn">!</span>Test your fallback if the AI goes down</li>
+          <li><span class="check-icon warn">!</span>Set a 90-day review date to measure actual ROI</li>
+        </ul>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- ===== INDUSTRY DATA ===== -->
+<div id="page-industry" class="page">
+  <div class="page-header">
+    <h1>📈 Industry Data: State of AI 2026</h1>
+    <p>Deloitte surveyed 3,235 business & IT leaders across 24 countries — here's what it means for your local LLM decisions.</p>
+  </div>
+
+  <div class="alert alert-blue">
+    <strong>Source:</strong> Deloitte AI Institute "State of AI in the Enterprise: The Untapped Edge" (Jan 2026, Davos) — survey of 3,235 director-to-C-suite leaders, Aug–Sep 2025, 24 countries, 6 industries.
+    <a href="https://www.deloitte.com/us/en/about/press-room/state-of-ai-report-2026.html" style="margin-left:8px" target="_blank">Read report →</a>
+  </div>
+
+  <div class="grid-4" style="margin-bottom:20px">
+    <div class="stat"><div class="stat-val" style="color:var(--accent2)">60%</div><div class="stat-label">Workers with sanctioned AI tools<br><span style="font-size:10px;color:var(--muted)">(up from 40% last year)</span></div></div>
+    <div class="stat"><div class="stat-val" style="color:var(--green)">85%</div><div class="stat-label">Companies planning custom AI agents</div></div>
+    <div class="stat"><div class="stat-val" style="color:var(--yellow)">25%</div><div class="stat-label">Companies with 40%+ pilots in production</div></div>
+    <div class="stat"><div class="stat-val" style="color:var(--orange)">77%</div><div class="stat-label">Companies factoring country of origin in vendor selection</div></div>
+  </div>
+
+  <div class="grid-4" style="margin-bottom:20px">
+    <div class="stat"><div class="stat-val count-up" data-target="60" style="color:var(--accent2)">0</div><div class="stat-label">% Workers with AI tools (↑ from 40%)</div></div>
+    <div class="stat"><div class="stat-val count-up" data-target="85" style="color:var(--green)">0</div><div class="stat-label">% Companies planning custom agents</div></div>
+    <div class="stat"><div class="stat-val count-up" data-target="25" style="color:var(--yellow)">0</div><div class="stat-label">% With 40%+ pilots in production</div></div>
+    <div class="stat"><div class="stat-val count-up" data-target="77" style="color:var(--orange)">0</div><div class="stat-label">% Factor vendor country of origin</div></div>
+  </div>
+
+  <div class="card" style="margin-bottom:16px">
+    <div class="card-title">Cross-Report Adoption & Readiness Snapshot</div>
+    <div class="card-sub">2026 figures from Deloitte, McKinsey, Gartner, Stanford HAI, IBM IBV</div>
+    <div class="chart-wrap" style="height:300px">
+      <canvas id="adoptionChart"></canvas>
+    </div>
+  </div>
+
+  <div class="grid-2">
+    <div class="card">
+      <div class="card-title">🏛️ Sovereign AI — The Local LLM Tailwind</div>
+      <div class="card-sub">The #1 finding relevant to local LLM adoption</div>
+      <div class="alert alert-green" style="margin-bottom:12px">
+        <strong>3 in 5 companies now build their AI stacks primarily with local vendors.</strong> 77% factor country of origin into vendor selection. This is the enterprise rationale for local LLM investment — data sovereignty, not just cost.
+      </div>
+      <table class="tbl">
+        <thead><tr><th>Sovereign AI Signal</th><th>Stat</th><th>Local LLM Implication</th></tr></thead>
+        <tbody>
+          <tr><td>Country of origin in vendor selection</td><td><strong>77%</strong></td><td>On-premise models avoid foreign data exposure</td></tr>
+          <tr><td>AI stacks built with local vendors</td><td><strong>~60%</strong></td><td>Local deployment = sovereign by definition</td></tr>
+          <tr><td>Sovereign AI important to strategy</td><td><strong>83%</strong></td><td>Board-level mandate for local options</td></tr>
+          <tr><td>Physical AI already deployed</td><td><strong>58%</strong></td><td>Edge inference = local LLMs on hardware</td></tr>
+          <tr><td>Physical AI adoption in 2 years</td><td><strong>80%</strong></td><td>Massive demand for on-device / on-prem models</td></tr>
+        </tbody>
+      </table>
+    </div>
+    <div class="card">
+      <div class="card-title">🤖 Agentic AI: The Gap Between Intent and Governance</div>
+      <div class="card-sub">Relevant to your fallback chain and monitoring setup</div>
+      <div class="alert alert-yellow" style="margin-bottom:12px">
+        <strong>75% of companies plan agentic AI within 2 years — but only 21% have mature agent governance.</strong> This is the same governance gap that shows up in local LLM deployments: teams deploy before they have evals, monitoring, or fallback chains.
+      </div>
+      <table class="tbl">
+        <thead><tr><th>Agentic AI Metric</th><th>Stat</th></tr></thead>
+        <tbody>
+          <tr><td>Companies planning agentic AI in 2 years</td><td><span class="badge-pill green">75%</span></td></tr>
+          <tr><td>Companies with mature agent governance</td><td><span class="badge-pill red">21%</span></td></tr>
+          <tr><td>Companies expecting to customize agents</td><td><span class="badge-pill green">85%</span></td></tr>
+          <tr><td>Starting with lower-risk use cases (smart approach)</td><td><span class="badge-pill yellow">Best practice</span></td></tr>
+        </tbody>
+      </table>
+      <div style="margin-top:12px;font-size:12px;color:var(--muted)">
+        💡 The 54% gap between intent (75%) and governance (21%) is exactly why this dashboard has a Fallback Chain, Evaluation, and Monitoring section. Build governance before you scale agents.
+      </div>
+    </div>
+  </div>
+
+  <div class="grid-2">
+    <div class="card">
+      <div class="card-title">🚀 Pilot-to-Production Gap</div>
+      <div class="card-sub">Why most AI projects stall — and what the successful 25% do differently</div>
+      <div style="margin-bottom:16px">
+        <div style="display:flex;justify-content:space-between;font-size:12px;margin-bottom:4px">
+          <span>Companies using AI at surface level only</span><span style="color:var(--red)">37%</span>
+        </div>
+        <div class="progress-bar" style="margin-bottom:12px"><div class="progress-fill" style="width:37%;background:var(--red)"></div></div>
+        <div style="display:flex;justify-content:space-between;font-size:12px;margin-bottom:4px">
+          <span>Companies using AI to "deeply transform"</span><span style="color:var(--yellow)">34%</span>
+        </div>
+        <div class="progress-bar" style="margin-bottom:12px"><div class="progress-fill" style="width:34%;background:var(--yellow)"></div></div>
+        <div style="display:flex;justify-content:space-between;font-size:12px;margin-bottom:4px">
+          <span>Companies redesigning key processes around AI</span><span style="color:var(--orange)">30%</span>
+        </div>
+        <div class="progress-bar" style="margin-bottom:12px"><div class="progress-fill" style="width:30%;background:var(--orange)"></div></div>
+        <div style="display:flex;justify-content:space-between;font-size:12px;margin-bottom:4px">
+          <span>Companies with 40%+ pilots in production</span><span style="color:var(--green)">25%</span>
+        </div>
+        <div class="progress-bar" style="margin-bottom:12px"><div class="progress-fill" style="width:25%;background:var(--green)"></div></div>
+        <div style="display:flex;justify-content:space-between;font-size:12px;margin-bottom:4px">
+          <span>Leaders reporting transformative AI impact</span><span style="color:var(--accent)">25%</span>
+        </div>
+        <div class="progress-bar" style="margin-bottom:12px"><div class="progress-fill" style="width:25%;background:var(--accent)"></div></div>
+      </div>
+      <div style="font-size:12px;color:var(--muted)">The companies succeeding are those that pair AI deployment with workforce enablement — not just tool rollout.</div>
+    </div>
+    <div class="card">
+      <div class="card-title">🎯 Local LLM Fit Score by Finding</div>
+      <div class="card-sub">How each Deloitte finding strengthens the case for local deployment</div>
+      <table class="tbl">
+        <thead><tr><th>Finding</th><th>Strengthens Local LLM?</th></tr></thead>
+        <tbody>
+          <tr><td>Sovereign AI is strategic priority (83%)</td><td><span class="badge-pill green">Strong ✓</span></td></tr>
+          <tr><td>Country of origin in vendor selection (77%)</td><td><span class="badge-pill green">Strong ✓</span></td></tr>
+          <tr><td>Physical AI to 80% adoption in 2 years</td><td><span class="badge-pill green">Strong ✓</span></td></tr>
+          <tr><td>Agents need governance (21% mature)</td><td><span class="badge-pill green">Strong ✓</span></td></tr>
+          <tr><td>Pilot-to-production gap (only 25% scaled)</td><td><span class="badge-pill yellow">Relevant ✓</span></td></tr>
+          <tr><td>Workers with AI tools up 50% YoY</td><td><span class="badge-pill yellow">Relevant ✓</span></td></tr>
+          <tr><td>Transformative impact doubled to 25%</td><td><span class="badge-pill blue">Context</span></td></tr>
+          <tr><td>37% using AI at surface level only</td><td><span class="badge-pill red">Risk — same trap applies locally</span></td></tr>
+        </tbody>
+      </table>
+    </div>
+  </div>
+
+  <div class="card">
+    <div class="card-title">📋 Key Takeaways for Local LLM Projects</div>
+    <div class="grid-3">
+      <div style="background:var(--surface2);border-radius:8px;padding:14px">
+        <div style="font-weight:700;color:var(--green);margin-bottom:8px">✅ Tailwinds</div>
+        <ul style="font-size:12px;line-height:1.9;color:var(--muted);padding-left:14px">
+          <li>Sovereign AI is now a C-suite mandate — not just a technical choice. Local LLMs are the natural answer.</li>
+          <li>Physical AI growth means edge inference and on-device models will be mainstream by 2028.</li>
+          <li>3 in 5 enterprises already prefer local vendor stacks — your LLM deployment fits this trend.</li>
+          <li>85% want custom agents — local models make agentic customization possible without data leaving your perimeter.</li>
+        </ul>
+      </div>
+      <div style="background:var(--surface2);border-radius:8px;padding:14px">
+        <div style="font-weight:700;color:var(--yellow);margin-bottom:8px">⚠️ Headwinds</div>
+        <ul style="font-size:12px;line-height:1.9;color:var(--muted);padding-left:14px">
+          <li>Only 25% of companies cross the pilot-to-production threshold. Local LLMs face the same risk — build eval + monitoring first.</li>
+          <li>37% use AI at "surface level" — local LLMs deployed without RAG or fine-tuning often produce the same shallow results.</li>
+          <li>Governance gap is real: 75% want agents, only 21% have governance. Don't be in that 54% gap.</li>
+        </ul>
+      </div>
+      <div style="background:var(--surface2);border-radius:8px;padding:14px">
+        <div style="font-weight:700;color:var(--accent2);margin-bottom:8px">💡 Action Items</div>
+        <ul style="font-size:12px;line-height:1.9;color:var(--muted);padding-left:14px">
+          <li>Frame local LLM to leadership as sovereign AI strategy, not just a cost play.</li>
+          <li>Build governance (eval, monitoring, fallback) before scaling agents — become the 21% with mature governance.</li>
+          <li>Redesign at least one core process around AI (only 30% do this — it separates transformers from surface users).</li>
+          <li>Set a target: move 40%+ of pilots to production within 6 months.</li>
+        </ul>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- ===== SECURITY ===== -->
+<div id="page-security" class="page">
+  <div class="page-header"><h1>🔒 Security</h1><p>Secure your local LLM stack from model tampering, prompt injection, and API exposure</p></div>
+
+  <div class="grid-2">
+    <div class="card">
+      <div class="card-title">Model Integrity Verification</div>
+      <pre><code># Verify model hash before loading
+import hashlib, subprocess
+
+def verify_model(path, expected_sha256):
+    sha256 = hashlib.sha256()
+    with open(path, "rb") as f:
+        for chunk in iter(lambda: f.read(1024*1024), b""):
+            sha256.update(chunk)
+    actual = sha256.hexdigest()
+    if actual != expected_sha256:
+        raise SecurityError(f"Hash mismatch! Expected {expected_sha256[:8]}... got {actual[:8]}...")
+    print("✓ Model integrity verified")
+
+# Example known hashes (from model card)
+KNOWN_HASHES = {
+    "qwen3-72b.Q4_K_M.gguf": "abc123...",
+    "phi4-mini.Q4_K_M.gguf":  "def456...",
+}</code></pre>
+    </div>
+    <div class="card">
+      <div class="card-title">Prompt Injection Defense</div>
+      <pre><code># Input sanitization + Llama Guard 3
+def safe_prompt(user_input, guard_model="llama-guard3"):
+    # 1. Check with Llama Guard 3
+    guard_response = llm(
+        model=guard_model,
+        prompt=f"<|begin_of_text|>...[S1-S14 categories]...\n{user_input}"
+    )
+    if "unsafe" in guard_response.lower():
+        return None  # blocked
+
+    # 2. Strip known injection patterns
+    patterns = [
+        r"ignore (previous|all) instructions",
+        r"system prompt",
+        r"you are now",
+        r"forget everything",
+    ]
+    for p in patterns:
+        if re.search(p, user_input, re.I):
+            return None
+
+    return user_input</code></pre>
+    </div>
+  </div>
+
+  <div class="card">
+    <div class="card-title">Security Checklist</div>
+    <div class="grid-3">
+      <ul class="checklist">
+        <li><span class="check-icon ok">✓</span>SHA-256 verify all model files on load</li>
+        <li><span class="check-icon ok">✓</span>API auth (JWT or API keys)</li>
+        <li><span class="check-icon ok">✓</span>Rate limiting per user/IP</li>
+        <li><span class="check-icon ok">✓</span>HTTPS only (TLS 1.3)</li>
+        <li><span class="check-icon warn">!</span>Run model server as non-root user</li>
+      </ul>
+      <ul class="checklist">
+        <li><span class="check-icon ok">✓</span>Input validation before LLM call</li>
+        <li><span class="check-icon ok">✓</span>Output filtering (PII, harmful content)</li>
+        <li><span class="check-icon warn">!</span>Sandbox code execution (E2B or Docker)</li>
+        <li><span class="check-icon warn">!</span>Audit log all requests + responses</li>
+        <li><span class="check-icon bad">✗</span>Never expose Ollama port 11434 publicly</li>
+      </ul>
+      <ul class="checklist">
+        <li><span class="check-icon ok">✓</span>Network isolation (internal only)</li>
+        <li><span class="check-icon ok">✓</span>Container: read-only filesystem</li>
+        <li><span class="check-icon warn">!</span>mTLS between services</li>
+        <li><span class="check-icon warn">!</span>RBAC — separate read/write roles</li>
+        <li><span class="check-icon bad">✗</span>Don't log raw prompts with PII</li>
+      </ul>
+    </div>
+  </div>
+</div>
+
+<!-- ===== MONITORING ===== -->
+<div id="page-monitoring" class="page">
+  <div class="page-header"><h1>📡 Monitoring</h1><p>Key metrics, alerting thresholds, and Prometheus setup</p></div>
+
+  <div class="grid-4" style="margin-bottom:20px">
+    <div class="stat"><div class="stat-val" style="color:var(--green)" id="mon-ttft">1.2s</div><div class="stat-label">Avg TTFT</div></div>
+    <div class="stat"><div class="stat-val" style="color:var(--accent2)" id="mon-tps">38</div><div class="stat-label">Tokens/sec</div></div>
+    <div class="stat"><div class="stat-val" style="color:var(--yellow)" id="mon-vram">71%</div><div class="stat-label">VRAM Usage</div></div>
+    <div class="stat"><div class="stat-val" style="color:var(--green)" id="mon-err">0.3%</div><div class="stat-label">Error Rate</div></div>
+  </div>
+
+  <div class="card">
+    <div class="card-title">Metric Thresholds & Alert Rules</div>
+    <table class="tbl">
+      <thead><tr><th>Metric</th><th>Target</th><th>Warning</th><th>Critical</th><th>Action</th></tr></thead>
+      <tbody>
+        <tr><td>Time to first token (TTFT)</td><td>&lt;2s</td><td>2–5s</td><td>&gt;5s</td><td>Scale out or fallback</td></tr>
+        <tr><td>Tokens per second</td><td>&gt;30</td><td>15–30</td><td>&lt;15</td><td>Check thermal throttle</td></tr>
+        <tr><td>VRAM usage</td><td>&lt;80%</td><td>80–90%</td><td>&gt;90%</td><td>Reduce ctx or offload</td></tr>
+        <tr><td>Request queue depth</td><td>&lt;10</td><td>10–50</td><td>&gt;50</td><td>Reject new requests</td></tr>
+        <tr><td>Error rate</td><td>&lt;1%</td><td>1–5%</td><td>&gt;5%</td><td>Page on-call</td></tr>
+        <tr><td>GPU temperature</td><td>&lt;75°C</td><td>75–83°C</td><td>&gt;83°C</td><td>Reduce load / check cooling</td></tr>
+        <tr><td>Hallucination rate (sampled)</td><td>&lt;5%</td><td>5–15%</td><td>&gt;15%</td><td>Review prompts/RAG</td></tr>
+      </tbody>
+    </table>
+  </div>
+
+  <div class="card">
+    <div class="card-title">Prometheus Alert Rules</div>
+    <pre><code># prometheus/alerts/llm.yml
+groups:
+  - name: local-llm
+    rules:
+      - alert: HighTTFT
+        expr: llm_time_to_first_token_p99 > 5
+        for: 2m
+        labels: { severity: warning }
+        annotations: { summary: "TTFT p99 exceeded 5s" }
+
+      - alert: GPUMemoryPressure
+        expr: gpu_memory_used_bytes / gpu_memory_total_bytes > 0.90
+        for: 1m
+        labels: { severity: critical }
+        annotations: { summary: "GPU VRAM > 90% — OOM risk" }
+
+      - alert: HighErrorRate
+        expr: rate(llm_requests_failed_total[5m]) / rate(llm_requests_total[5m]) > 0.05
+        for: 1m
+        labels: { severity: critical }
+        annotations: { summary: "Error rate > 5%" }
+
+      - alert: QueueSaturation
+        expr: llm_queue_depth > 50
+        for: 30s
+        labels: { severity: warning }
+        annotations: { summary: "Request queue > 50 — consider scaling"}</code></pre>
+  </div>
+</div>
+
+<!-- ===== COST ANALYSIS ===== -->
+<div id="page-cost" class="page">
+  <div class="page-header"><h1>💰 Cost Analysis</h1><p>TCO calculator and ROI timeline vs cloud APIs</p></div>
+
+  <div class="grid-2">
+    <div class="card">
+      <div class="card-title">TCO Calculator</div>
+      <div class="form-group"><label>Hardware Cost (USD)</label><input type="number" id="cost-hw" value="5000" oninput="calcCost()"></div>
+      <div class="form-group"><label>Hardware Lifespan (years)</label><input type="number" id="cost-life" value="3" oninput="calcCost()"></div>
+      <div class="form-group"><label>Daily Token Volume (millions)</label><input type="number" id="cost-tokens" value="10" oninput="calcCost()"></div>
+      <div class="form-group"><label>Electricity Rate (USD/kWh)</label><input type="number" id="cost-elec" value="0.12" step="0.01" oninput="calcCost()"></div>
+      <div class="form-group"><label>GPU Power Draw (Watts)</label><input type="number" id="cost-power" value="350" oninput="calcCost()"></div>
+      <div class="form-group"><label>Cloud API Cost (USD per 1M tokens)</label><input type="number" id="cost-cloud" value="15" oninput="calcCost()"></div>
+      <div class="form-group"><label>Maintenance Hours/Month</label><input type="number" id="cost-hours" value="4" oninput="calcCost()"></div>
+      <div class="form-group"><label>Hourly Rate (USD)</label><input type="number" id="cost-rate" value="80" oninput="calcCost()"></div>
+    </div>
+    <div class="card" id="cost-result">
+      <div class="card-title">Cost Breakdown</div>
+      <div id="cost-output" style="margin-top:12px"></div>
+    </div>
+  </div>
+
+  <div class="card">
+    <div class="card-title">💹 Cumulative Cost: Local vs Cloud Over 36 Months</div>
+    <div class="card-sub">See exactly when your local investment pays off</div>
+    <div class="chart-wrap" style="height:280px">
+      <canvas id="roiChart"></canvas>
+    </div>
+  </div>
+
+  <div class="card">
+    <div class="card-title">Scenario Comparison</div>
+    <table class="tbl">
+      <thead><tr><th>Team Size</th><th>Monthly Tokens</th><th>Cloud Cost/mo</th><th>Local Cost/mo</th><th>Breakeven</th></tr></thead>
+      <tbody>
+        <tr><td>Solo dev</td><td>100M</td><td>$150–$300</td><td>$80 (amort. hw + elec)</td><td><span class="badge-pill yellow">3–5 months</span></td></tr>
+        <tr><td>Small team (5)</td><td>2B</td><td>$3,000–$6,000</td><td>$200–$400</td><td><span class="badge-pill green">1–2 months</span></td></tr>
+        <tr><td>Mid company (50)</td><td>50B</td><td>$75,000+</td><td>$2,000–$4,000</td><td><span class="badge-pill green">&lt;1 month</span></td></tr>
+        <tr><td>Enterprise</td><td>500B+</td><td>$750,000+</td><td>$15,000–$30,000</td><td><span class="badge-pill green">Days</span></td></tr>
+      </tbody>
+    </table>
+    <div style="margin-top:12px;font-size:12px;color:var(--muted)">⚠️ Hidden costs not shown above: network upgrades, UPS, cooling, insurance, training time, opportunity cost of setup. Add 20–40% to local estimates for realistic TCO.</div>
+  </div>
+</div>
+
+<!-- ===== QUICK START ===== -->
+<div id="page-quickstart" class="page">
+  <div class="page-header"><h1>🚀 Quick Start</h1><p>Copy-paste commands to go from zero to running in minutes</p></div>
+
+  <div class="card">
+    <div class="card-title">1. Install Ollama + Run Your First Model</div>
+    <pre><code># Install Ollama (macOS/Linux)
+curl -fsSL https://ollama.com/install.sh | sh
+
+# Run Qwen 3 8B (recommended starting point)
+ollama run qwen3:8b
+
+# Or for limited hardware:
+ollama run phi4-mini
+
+# Expose as OpenAI-compatible API (for LangChain, etc.)
+ollama serve  # runs on http://localhost:11434</code></pre>
+  </div>
+
+  <div class="card">
+    <div class="card-title">2. Minimal RAG Pipeline (Python)</div>
+    <pre><code>pip install chromadb sentence-transformers openai
+
+from openai import OpenAI
+import chromadb
+from sentence_transformers import SentenceTransformer
+
+# Setup
+client = OpenAI(base_url="http://localhost:11434/v1", api_key="ollama")
+embed_model = SentenceTransformer("BAAI/bge-m3")
+db = chromadb.Client()
+collection = db.create_collection("docs")
+
+# Ingest documents
+def add_docs(docs):
+    for i, doc in enumerate(docs):
+        embedding = embed_model.encode(doc["content"]).tolist()
+        collection.add(ids=[str(i)], documents=[doc["content"]],
+                       embeddings=[embedding], metadatas=[{"source": doc["source"]}])
+
+# Query with RAG
+def rag_query(question):
+    q_embed = embed_model.encode(question).tolist()
+    results = collection.query(query_embeddings=[q_embed], n_results=5)
+    context = "\n\n".join(results["documents"][0])
+
+    response = client.chat.completions.create(
+        model="qwen3:72b",
+        messages=[
+            {"role": "system", "content": f"Answer using only this context:\n{context}"},
+            {"role": "user", "content": question}
+        ]
+    )
+    return response.choices[0].message.content</code></pre>
+  </div>
+
+  <div class="card">
+    <div class="card-title">3. Minimal Eval Suite</div>
+    <pre><code># Run before deploying any model or prompt change
+test_cases = [
+    {"input": "What is our refund policy?", "expected_keywords": ["30 days", "receipt"]},
+    {"input": "How do I reset my password?", "expected_keywords": ["email", "link", "reset"]},
+]
+
+def quick_eval(model, cases):
+    passed = 0
+    for case in cases:
+        response = rag_query(case["input"])
+        if all(kw.lower() in response.lower() for kw in case["expected_keywords"]):
+            passed += 1
+            print(f"✓ PASS: {case['input'][:40]}")
+        else:
+            print(f"✗ FAIL: {case['input'][:40]}")
+            print(f"  Expected keywords: {case['expected_keywords']}")
+            print(f"  Got: {response[:100]}")
+    print(f"\nScore: {passed}/{len(cases)} ({100*passed//len(cases)}%)")
+
+quick_eval("qwen3:72b", test_cases)</code></pre>
+  </div>
+</div>
+
+</div><!-- end main -->
+</div><!-- end app -->
+
+<script>
+// Navigation
+function show(page) {
+  document.querySelectorAll('.page').forEach(p => p.classList.remove('active'));
+  document.querySelectorAll('.nav-item').forEach(n => n.classList.remove('active'));
+  document.getElementById('page-' + page).classList.add('active');
+  event.currentTarget.classList.add('active');
+}
+
+// Model data
+const models = [
+  {name:"Qwen 3 72B", params:72, vram:42, speed:"15–25", usecase:"General", license:"Apache 2.0", score:95, tag:"Best Overall"},
+  {name:"Qwen 3 7B",  params:7,  vram:4.5,speed:"35–55",usecase:"General", license:"Apache 2.0", score:78, tag:""},
+  {name:"Llama 3.3 70B",params:70,vram:40,speed:"15–25",usecase:"General",license:"Meta Community",score:92,tag:""},
+  {name:"Llama 3.3 8B", params:8, vram:5.5,speed:"35–55",usecase:"General",license:"Meta Community",score:77,tag:""},
+  {name:"Phi-4-mini",   params:3.8,vram:2.5,speed:"40–65",usecase:"Low Resource",license:"MIT",score:70,tag:"Best Small"},
+  {name:"Mistral Small 3",params:7,vram:4.5,speed:"45–65",usecase:"General",license:"Apache 2.0",score:76,tag:"Fastest"},
+  {name:"Devstral",     params:22,vram:14, speed:"20–35",usecase:"Coding",  license:"Apache 2.0",score:88,tag:"Best Code"},
+  {name:"Qwen 3 Coder", params:35,vram:22, speed:"15–25",usecase:"Coding",  license:"Apache 2.0",score:90,tag:""},
+  {name:"GPT-OSS 20B",  params:20,vram:13, speed:"20–35",usecase:"Reasoning",license:"Apache 2.0",score:86,tag:""},
+  {name:"Gemma 3 27B",  params:27,vram:17, speed:"18–30",usecase:"Multimodal",license:"Gemma Terms",score:83,tag:"Best Vision"},
+  {name:"Mixtral 8x7B", params:47,vram:26, speed:"18–28",usecase:"General",license:"Apache 2.0",score:84,tag:"MoE"},
+  {name:"BGE-M3",       params:0.5,vram:0.5,speed:"—",   usecase:"Embeddings",license:"MIT",score:92,tag:"Best Embed"},
+];
+
+function scoreColor(s) {
+  if(s>=90) return 'var(--green)';
+  if(s>=75) return 'var(--yellow)';
+  return 'var(--red)';
+}
+
+function filterModels() {
+  const uc = document.getElementById('filter-usecase').value;
+  const sz = document.getElementById('filter-size').value;
+  const lc = document.getElementById('filter-license').value;
+
+  const filtered = models.filter(m => {
+    if(uc && m.usecase !== uc) return false;
+    if(sz && m.params > parseFloat(sz)) return false;
+    if(lc && m.license !== lc) return false;
+    return true;
+  });
+
+  const tbody = document.getElementById('model-tbody');
+  tbody.innerHTML = filtered.map(m => `
+    <tr>
+      <td><strong>${m.name}</strong>${m.tag ? ` <span class="badge-pill cyan">${m.tag}</span>`:''}` +
+      `</td>
+      <td>${m.params}B</td>
+      <td>${m.vram}GB</td>
+      <td>${m.speed} t/s</td>
+      <td>${m.usecase}</td>
+      <td><span class="badge-pill ${m.license==='Apache 2.0'||m.license==='MIT'?'green':m.license==='Meta Community'?'yellow':'orange'}">${m.license}</span></td>
+      <td><strong style="color:${scoreColor(m.score)}">${m.score}/100</strong></td>
+    </tr>`).join('');
+}
+filterModels();
+
+// Hardware calculator
+function calcHardware() {
+  const [params, baseGB] = document.getElementById('hw-model').value.split(',').map(Number);
+  const quantMult = parseFloat(document.getElementById('hw-quant').value);
+  const ctx = parseFloat(document.getElementById('hw-ctx').value);
+  const vram = parseFloat(document.getElementById('hw-vram').value);
+  const ram = parseFloat(document.getElementById('hw-ram').value);
+
+  const modelGB = baseGB * quantMult;
+  const kvCache = params * 0.001 * ctx * 2; // rough KV cache estimate
+  const totalNeeded = modelGB + kvCache;
+  const offload = Math.max(0, totalNeeded - vram);
+  const inVRAM = Math.min(totalNeeded, vram);
+  const canRun = inVRAM + ram >= totalNeeded;
+
+  let speedEst = 0;
+  if(vram >= totalNeeded) speedEst = Math.round(120 / (params / 7));
+  else if(canRun) speedEst = Math.round(30 / (params / 7));
+  else speedEst = 0;
+
+  const status = vram >= totalNeeded ? 'green' : canRun ? 'yellow' : 'red';
+  const statusText = vram >= totalNeeded ? '✅ Fits fully in VRAM' : canRun ? '⚠️ Partial GPU offload needed' : '❌ Cannot run — needs more hardware';
+
+  document.getElementById('hw-output').innerHTML = `
+    <div class="alert alert-${status==='green'?'green':status==='yellow'?'yellow':'red'}">
+      <strong>${statusText}</strong>
+    </div>
+    <table class="tbl" style="margin-top:12px">
+      <tr><td>Model size (${document.getElementById('hw-quant').options[document.getElementById('hw-quant').selectedIndex].text})</td><td><strong>${modelGB.toFixed(1)}GB</strong></td></tr>
+      <tr><td>KV cache (${document.getElementById('hw-ctx').value}K ctx)</td><td><strong>${kvCache.toFixed(1)}GB</strong></td></tr>
+      <tr><td>Total VRAM needed</td><td><strong>${totalNeeded.toFixed(1)}GB</strong></td></tr>
+      <tr><td>Your VRAM</td><td><strong>${vram}GB</strong></td></tr>
+      <tr><td>Offload to system RAM</td><td><strong>${offload.toFixed(1)}GB</strong></td></tr>
+      <tr><td>Estimated speed</td><td><strong style="color:var(--${status==='green'?'green':status==='yellow'?'yellow':'red'})">${speedEst > 0 ? speedEst + ' t/s' : 'Cannot run'}</strong></td></tr>
+    </table>
+    ${offload > 0 && canRun ? '<div style="margin-top:12px;font-size:12px;color:var(--muted)">💡 Use <code>-ngl &lt;N&gt;</code> in llama.cpp to control GPU layer count. More layers in GPU = faster.</div>' : ''}
+    ${!canRun ? '<div style="margin-top:12px;font-size:12px;color:var(--muted)">💡 Try Q4_K_M quantization or a smaller model size to reduce memory requirements.</div>' : ''}
+  `;
+}
+calcHardware();
+
+// RAG configurator
+function configRAG() {
+  const doctype = document.getElementById('rag-doctype').value;
+  const volume  = document.getElementById('rag-volume').value;
+  const lang    = document.getElementById('rag-lang').value;
+  const latency = document.getElementById('rag-latency').value;
+
+  let embed = lang.includes('Multi') ? 'BGE-M3 (multilingual)' : 'E5-large-v2';
+  let vecdb = volume.includes('Large') ? 'Qdrant or Weaviate' : volume.includes('Medium') ? 'ChromaDB or Qdrant' : 'ChromaDB (in-memory)';
+  let chunk = doctype.includes('Code') ? '250 tokens (no overlap)' : doctype.includes('Email') ? '200 tokens (50 overlap)' : '512 tokens (128 overlap)';
+  let rerank = latency.includes('Quality') ? 'BGE-reranker-v2-m3 (cross-encoder)' : latency.includes('Low') ? 'None (vector only)' : 'ms-marco-MiniLM-L6-v2';
+  let retrieval_k = latency.includes('Low') ? 3 : 5;
+  let llm = volume.includes('Large') ? 'Qwen 3 72B Q4' : 'Qwen 3 7B Q4';
+  let freshness = doctype.includes('Email') || doctype.includes('Web') ? 'Real-time webhook triggers' : 'Nightly incremental re-index';
+
+  document.getElementById('rag-output').innerHTML = `
+    <table class="tbl">
+      <tr><td><strong>Embedding Model</strong></td><td>${embed}</td></tr>
+      <tr><td><strong>Vector Database</strong></td><td>${vecdb}</td></tr>
+      <tr><td><strong>Chunk Size</strong></td><td>${chunk}</td></tr>
+      <tr><td><strong>Reranker</strong></td><td>${rerank}</td></tr>
+      <tr><td><strong>Top-K Retrieval</strong></td><td>${retrieval_k} chunks</td></tr>
+      <tr><td><strong>Generation Model</strong></td><td>${llm}</td></tr>
+      <tr><td><strong>Freshness Strategy</strong></td><td>${freshness}</td></tr>
+    </table>
+    <div style="margin-top:12px;font-size:12px;color:var(--muted)">
+      Install: <code>pip install chromadb sentence-transformers openai</code>
+    </div>`;
+}
+
+// License checker
+function checkLicense() {
+  const uc = document.getElementById('lic-usecase').value;
+  const model = document.getElementById('lic-model').value;
+  let risk = 'green', msg = '';
+
+  if(model.includes('Apache 2.0')) {
+    risk = 'green';
+    msg = '✅ <strong>Low Risk.</strong> Apache 2.0 allows commercial use, modification, redistribution, and SaaS deployment with no scale limits. Attribution required.';
+  } else if(model.includes('Meta Community')) {
+    if(uc.includes('700M')) { risk = 'red'; msg = '❌ <strong>Blocked.</strong> Meta Community License restricts deployment to platforms with fewer than 700M monthly active users.'; }
+    else { risk = 'yellow'; msg = '⚠️ <strong>Medium Risk.</strong> Meta Community License allows commercial use but requires attribution, prohibits training competitors, and has a 700M MAU limit.'; }
+  } else if(model.includes('Gemma')) {
+    risk = 'yellow';
+    msg = '⚠️ <strong>Medium Risk.</strong> Gemma Terms of Service restrict certain uses. Review Google\'s Gemma Prohibited Use Policy before commercial deployment.';
+  } else if(model.includes('DeepSeek')) {
+    risk = 'orange';
+    msg = '🔶 <strong>Medium-High Risk.</strong> DeepSeek License restricts redistribution of fine-tuned derivatives. Review carefully before commercial use. Some jurisdictions have additional concerns.';
+  } else if(model.includes('HuggingFace')) {
+    risk = 'red';
+    msg = '❌ <strong>High Risk.</strong> HuggingFace fine-tuned models inherit their base model license PLUS may have additional restrictions. You must read each model card individually. Many community models are non-commercial only.';
+  }
+
+  document.getElementById('lic-result').innerHTML = `<div class="alert alert-${risk==='green'?'green':risk==='yellow'?'yellow':'red'}">${msg}<br><br><span style="color:var(--muted);font-size:11px">⚠️ This is informational only. Get legal review for any commercial deployment.</span></div>`;
+}
+
+// Cost calculator
+function calcCost() {
+  const hw = parseFloat(document.getElementById('cost-hw').value) || 0;
+  const life = parseFloat(document.getElementById('cost-life').value) || 3;
+  const tokens = parseFloat(document.getElementById('cost-tokens').value) || 0; // M/day
+  const elec = parseFloat(document.getElementById('cost-elec').value) || 0;
+  const power = parseFloat(document.getElementById('cost-power').value) || 0;
+  const cloudPer1M = parseFloat(document.getElementById('cost-cloud').value) || 0;
+  const hours = parseFloat(document.getElementById('cost-hours').value) || 0;
+  const rate = parseFloat(document.getElementById('cost-rate').value) || 0;
+
+  const hwPerMonth = hw / (life * 12);
+  const elecPerMonth = (power / 1000) * 24 * 30 * elec;
+  const laborPerMonth = hours * rate;
+  const totalLocalPerMonth = hwPerMonth + elecPerMonth + laborPerMonth;
+
+  const cloudPerMonth = tokens * 30 * cloudPer1M;
+  const savings = cloudPerMonth - totalLocalPerMonth;
+  const breakeven = savings > 0 ? (hw / savings).toFixed(1) : '∞';
+
+  document.getElementById('cost-output').innerHTML = `
+    <table class="tbl">
+      <tr><th colspan="2">Local LLM Monthly Cost</th></tr>
+      <tr><td>Hardware (amortized)</td><td><strong>$${hwPerMonth.toFixed(0)}/mo</strong></td></tr>
+      <tr><td>Electricity</td><td><strong>$${elecPerMonth.toFixed(0)}/mo</strong></td></tr>
+      <tr><td>Maintenance labor</td><td><strong>$${laborPerMonth.toFixed(0)}/mo</strong></td></tr>
+      <tr><td><strong>Total Local</strong></td><td><strong style="color:var(--green)">$${totalLocalPerMonth.toFixed(0)}/mo</strong></td></tr>
+      <tr><th colspan="2">Cloud API Monthly Cost</th></tr>
+      <tr><td>${tokens*30}M tokens × $${cloudPer1M}/1M</td><td><strong style="color:var(--red)">$${cloudPerMonth.toFixed(0)}/mo</strong></td></tr>
+      <tr><th colspan="2">Analysis</th></tr>
+      <tr><td>Monthly savings</td><td><strong style="color:${savings>0?'var(--green)':'var(--red)'}">$${Math.abs(savings).toFixed(0)}/mo ${savings>0?'saved':'more expensive'}</strong></td></tr>
+      <tr><td>Hardware breakeven</td><td><strong>${breakeven} months</strong></td></tr>
+    </table>
+    <div style="margin-top:12px;font-size:12px;color:var(--muted)">
+      Add 25% to local costs for hidden expenses (UPS, cooling, insurance, setup time).
+    </div>
+  `;
+}
+calcCost();
+
+// Scorecard
+function calcScore() {
+  const boxes = document.querySelectorAll('#scorecard-items input[type=checkbox]');
+  const checked = Array.from(boxes).filter(b => b.checked).length;
+  const result = document.getElementById('scorecard-result');
+  if(checked === 0) { result.innerHTML = 'Tick the boxes above to get your personalised recommendation.'; result.style.color='var(--muted)'; return; }
+
+  let msg = '', color = '';
+  if(checked >= 6) {
+    color = 'var(--green)';
+    msg = '✅ <strong>Strong case for Local LLM.</strong> You have the use case, budget intent, and technical access. Prioritise: hardware ($3,000–$8,000), connect your documents (RAG), and build a 50-question test suite before going live. Start with Qwen 3 72B if budget allows, or Llama 3.3 8B for a smaller start.';
+  } else if(checked >= 4) {
+    color = 'var(--yellow)';
+    msg = '⚠️ <strong>Likely a good fit, but address your gaps first.</strong> Check which boxes you didn\'t tick — those are your barriers. If you lack technical staff, budget to outsource setup. If budget is tight, start with cloud AI for 3 months to prove value, then invest in local hardware.';
+  } else if(checked >= 2) {
+    color = 'var(--orange)';
+    msg = '🔶 <strong>Cloud AI first, local later.</strong> You have some reasons to go local, but not enough to justify the setup cost and complexity today. Use ChatGPT or Claude API for 6 months. When your usage grows or data sensitivity increases, revisit local LLM.';
+  } else {
+    color = 'var(--red)';
+    msg = '❌ <strong>Not ready for local LLM yet.</strong> Cloud API (ChatGPT, Claude) is the right starting point. Local LLM requires either heavy usage, sensitive data, or a specific customisation need — and you\'ve indicated none of those apply strongly right now.';
+  }
+  result.innerHTML = msg;
+  result.style.color = color;
+}
+
+// ============================================================
+// GOD MODE: Chart.js + Count-up + Animations
+// ============================================================
+
+const chartDefaults = {
+  responsive: true, maintainAspectRatio: false,
+  plugins: { legend: { labels: { color: '#94a3b8', font: { family: 'Inter', size: 11 }, boxWidth: 10 } } },
+};
+Chart.defaults.color = '#94a3b8';
+Chart.defaults.borderColor = 'rgba(255,255,255,0.06)';
+Chart.defaults.font.family = 'Inter';
+
+// Radar Chart — Model Comparison
+function initRadarChart() {
+  const el = document.getElementById('radarChart');
+  if(!el || el._chartInstance) return;
+  el._chartInstance = new Chart(el, {
+    type: 'radar',
+    data: {
+      labels: ['Quality', 'Speed', 'Code', 'Reasoning', 'Multilingual', 'Efficiency'],
+      datasets: [
+        { label: 'Qwen 3 72B',    data: [95,45,88,92,96,60], borderColor:'#818cf8', backgroundColor:'rgba(129,140,248,0.1)', pointBackgroundColor:'#818cf8', borderWidth:2 },
+        { label: 'Llama 3.3 8B',  data: [77,92,74,72,70,90], borderColor:'#22d3ee', backgroundColor:'rgba(34,211,238,0.08)', pointBackgroundColor:'#22d3ee', borderWidth:2 },
+        { label: 'Devstral 22B',  data: [84,68,96,80,60,72], borderColor:'#4ade80', backgroundColor:'rgba(74,222,128,0.08)', pointBackgroundColor:'#4ade80', borderWidth:2 },
+        { label: 'Mistral 7B',    data: [74,97,70,68,65,95], borderColor:'#fbbf24', backgroundColor:'rgba(251,191,36,0.08)', pointBackgroundColor:'#fbbf24', borderWidth:2 },
+      ]
+    },
+    options: {
+      ...chartDefaults,
+      scales: {
+        r: {
+          min: 0, max: 100,
+          grid: { color: 'rgba(255,255,255,0.06)' },
+          angleLines: { color: 'rgba(255,255,255,0.06)' },
+          pointLabels: { color: '#94a3b8', font: { size: 11, family: 'Inter', weight: '600' } },
+          ticks: { display: false, stepSize: 20 }
+        }
+      }
+    }
+  });
+}
+
+// Benchmark Bar Chart
+function initBenchChart() {
+  const el = document.getElementById('benchChart');
+  if(!el || el._chartInstance) return;
+  el._chartInstance = new Chart(el, {
+    type: 'bar',
+    data: {
+      labels: ['Qwen 3 72B', 'GPT-OSS 20B', 'Devstral', 'Llama 3.3 8B', 'Mistral 7B', 'Phi-4-mini'],
+      datasets: [
+        { label: 'MMLU (%)', data: [88,84,78,76,74,68], backgroundColor: 'rgba(129,140,248,0.7)', borderRadius: 6, borderSkipped: false },
+        { label: 'HumanEval (%)', data: [82,79,94,71,68,65], backgroundColor: 'rgba(34,211,238,0.6)', borderRadius: 6, borderSkipped: false },
+      ]
+    },
+    options: {
+      ...chartDefaults,
+      scales: {
+        x: { grid: { display: false }, ticks: { color: '#94a3b8', font: { size: 10 } } },
+        y: { min: 50, max: 100, grid: { color: 'rgba(255,255,255,0.05)' }, ticks: { color: '#94a3b8' } }
+      }
+    }
+  });
+}
+
+// ROI Line Chart
+function initROIChart() {
+  const el = document.getElementById('roiChart');
+  if(!el || el._chartInstance) return;
+  const hw = parseFloat(document.getElementById('cost-hw')?.value) || 5000;
+  const cloudPerMonth = 3000;
+  const localPerMonth = 280;
+
+  const months = Array.from({length:37},(_,i)=>i===0?'Now':`M${i}`);
+  const cloudCum = months.map((_,i) => Math.round(cloudPerMonth * i));
+  const localCum = months.map((_,i) => Math.round(hw + localPerMonth * i));
+
+  el._chartInstance = new Chart(el, {
+    type: 'line',
+    data: {
+      labels: months,
+      datasets: [
+        { label: 'Cloud API Cost ($)', data: cloudCum, borderColor:'#f87171', backgroundColor:'rgba(248,113,113,0.08)', borderWidth:2, fill:true, tension:0.3, pointRadius:0 },
+        { label: 'Local LLM Cost ($)', data: localCum, borderColor:'#4ade80', backgroundColor:'rgba(74,222,128,0.08)', borderWidth:2, fill:true, tension:0.3, pointRadius:0 },
+      ]
+    },
+    options: {
+      ...chartDefaults,
+      interaction: { intersect: false, mode: 'index' },
+      scales: {
+        x: { grid: { display: false }, ticks: { color: '#94a3b8', maxTicksLimit: 12, font:{size:10} } },
+        y: { grid: { color: 'rgba(255,255,255,0.05)' }, ticks: { color: '#94a3b8', callback: v => '$'+v.toLocaleString() } }
+      },
+      plugins: {
+        ...chartDefaults.plugins,
+        tooltip: {
+          backgroundColor: 'rgba(7,9,15,0.9)',
+          borderColor: 'rgba(129,140,248,0.3)',
+          borderWidth: 1,
+          callbacks: { label: ctx => ` ${ctx.dataset.label}: $${ctx.parsed.y.toLocaleString()}` }
+        }
+      }
+    }
+  });
+}
+
+// Adoption Horizontal Bar Chart (Industry Data)
+function initAdoptionChart() {
+  const el = document.getElementById('adoptionChart');
+  if(!el || el._chartInstance) return;
+  el._chartInstance = new Chart(el, {
+    type: 'bar',
+    data: {
+      labels: [
+        'Workers using AI tools (Deloitte)',
+        'Planning custom agents (Deloitte)',
+        'Sovereign AI strategic priority (Deloitte)',
+        'Factor vendor origin (Deloitte)',
+        'GenAI deployed in enterprise (Gartner)',
+        'CEOs say AI forces overhauls (Gartner)',
+        'AI use in one+ function (McKinsey)',
+        'Expect AI revenue by 2030 (IBM)',
+        'Fear integration failure (IBM)',
+        'Population adopted GenAI (Stanford HAI)',
+      ],
+      datasets: [{
+        label: '% of Respondents',
+        data: [60, 85, 83, 77, 80, 80, 88, 79, 68, 53],
+        backgroundColor: [
+          'rgba(129,140,248,0.7)','rgba(129,140,248,0.7)','rgba(129,140,248,0.7)','rgba(129,140,248,0.7)',
+          'rgba(34,211,238,0.6)','rgba(34,211,238,0.6)',
+          'rgba(251,191,36,0.6)',
+          'rgba(251,146,60,0.6)','rgba(248,113,113,0.6)',
+          'rgba(74,222,128,0.6)',
+        ],
+        borderRadius: 6, borderSkipped: false
+      }]
+    },
+    options: {
+      ...chartDefaults,
+      indexAxis: 'y',
+      scales: {
+        x: { min:0, max:100, grid:{ color:'rgba(255,255,255,0.05)' }, ticks:{ color:'#94a3b8', callback: v=>v+'%' } },
+        y: { grid:{ display:false }, ticks:{ color:'#94a3b8', font:{ size:10.5 } } }
+      },
+      plugins: { ...chartDefaults.plugins, legend:{ display:false } }
+    }
+  });
+}
+
+// Count-up animation
+function countUp(el) {
+  const target = parseInt(el.dataset.target);
+  const suffix = el.dataset.suffix || '';
+  let current = 0;
+  const duration = 1200;
+  const steps = 40;
+  const increment = target / steps;
+  const interval = duration / steps;
+  const timer = setInterval(() => {
+    current = Math.min(current + increment, target);
+    el.textContent = Math.round(current) + suffix;
+    if(current >= target) clearInterval(timer);
+  }, interval);
+}
+
+function runCountUps() {
+  document.querySelectorAll('.page.active .count-up').forEach(el => {
+    if(!el._counted) { el._counted = true; countUp(el); }
+  });
+}
+
+// Init charts on relevant tab
+function initChartsForPage(page) {
+  setTimeout(() => {
+    if(page === 'models')   { initRadarChart(); initBenchChart(); }
+    if(page === 'cost')     { initROIChart(); }
+    if(page === 'industry') { initAdoptionChart(); }
+  }, 100);
+}
+
+// Override show() to trigger charts + count-ups
+const _origShow = window.show;
+window.show = function(page) {
+  _origShow.call(this, page);
+  initChartsForPage(page);
+  setTimeout(runCountUps, 200);
+};
+
+// Init on load
+document.addEventListener('DOMContentLoaded', () => {
+  runCountUps();
+});
+
+// Monitoring simulation
+setInterval(() => {
+  const ttft = (0.8 + Math.random()*1.5).toFixed(1);
+  const tps = Math.round(30 + Math.random()*20);
+  const vram = Math.round(65 + Math.random()*15);
+  const err = (Math.random()*0.8).toFixed(1);
+  const e = document.getElementById('mon-ttft');
+  if(e) {
+    document.getElementById('mon-ttft').textContent = ttft + 's';
+    document.getElementById('mon-tps').textContent = tps;
+    document.getElementById('mon-vram').textContent = vram + '%';
+    document.getElementById('mon-err').textContent = err + '%';
+    document.getElementById('mon-vram').style.color = vram > 85 ? 'var(--red)' : vram > 75 ? 'var(--yellow)' : 'var(--green)';
+  }
+}, 3000);
+</script>
+</body>
+</html>
